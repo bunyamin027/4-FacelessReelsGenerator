@@ -17,6 +17,8 @@ struct HomeView: View {
     @State private var isTextFieldFocused: Bool = false
     @State private var buttonPressed: Bool = false
     @State private var showError: Bool = false
+    @EnvironmentObject private var subManager: SubscriptionManager
+    @State private var showPaywall: Bool = false
     @State private var glowAnimation: Bool = false
     @Namespace private var animationNamespace
     
@@ -111,6 +113,10 @@ struct HomeView: View {
                 withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
                     glowAnimation = true
                 }
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
+                    .environmentObject(subManager)
             }
         }
         .preferredColorScheme(.dark)
@@ -266,11 +272,22 @@ struct HomeView: View {
         Button {
             guard !viewModel.isGenerating else { return }
             
+            // Limit Check & Paywall Presentation
+            if !subManager.isPro && UsageTracker.shared.hasReachedFreeLimit() {
+                showPaywall = true
+                return
+            }
+            
+            // Increment usage limit for free users
+            if !subManager.isPro {
+                UsageTracker.shared.incrementUsage()
+            }
+            
             // Haptic feedback
             let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
             impactFeedback.impactOccurred()
             
-            viewModel.generateReel()
+            viewModel.generateReel(isPro: subManager.isPro)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "wand.and.stars")

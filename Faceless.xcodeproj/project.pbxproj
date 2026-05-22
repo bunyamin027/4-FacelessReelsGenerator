@@ -8,15 +8,19 @@
 
 /* Begin PBXBuildFile section */
 		01FA16525D06A5668D7720AC /* UserTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B76A8E3CB64E3229FA06730 /* UserTier.swift */; };
+		0258D9362D2F0B4AF483B3F1 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4375F917090C0E40D3DD20C4 /* SubscriptionManager.swift */; };
 		0E010ECCA910D3FF3DBD0736 /* ReelsRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A01F41CE73D00738C6E42FEE /* ReelsRenderer.swift */; };
 		17DB6F8F7FFBE87E84BDF9B2 /* ReelsBlueprint.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAA917E3766E1949DCD27AA0 /* ReelsBlueprint.swift */; };
 		257BD46423D340A696B784AB /* BlueprintService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F82A5568ECB048899E9AE55 /* BlueprintService.swift */; };
 		2716ADBE337DFA48BDBCABDD /* VideoFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = D030C7A84040AE6382930914 /* VideoFetcher.swift */; };
 		2836762CBEA89B733CCCC9B2 /* FacelessApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53BCA41C6DA730ACDF302914 /* FacelessApp.swift */; };
 		2903BE5DEF5216293CFE3BCC /* ReelGeneratorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A57E14A781B27B54DBD98FEC /* ReelGeneratorViewModel.swift */; };
+		2C7DB59192916B0F1879AFE5 /* UsageTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14798FB17F2A8621230C2F35 /* UsageTracker.swift */; };
 		357EF6C54D574454DF3BF0DC /* VoiceoverGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C479FEB724BA5A2E333DE7 /* VoiceoverGeneratorTests.swift */; };
+		38B935529AAECE255E53204E /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94159C4AB89BF5C7E6FA2ACC /* PaywallView.swift */; };
 		472C8A58EE9D5230800A1124 /* mock_blueprint.json in Resources */ = {isa = PBXBuildFile; fileRef = CA670A251DEA4273F84F04B8 /* mock_blueprint.json */; };
 		47AC9DD06F6868601711E1E0 /* GenerationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5738791F828E015D3DFE8B3D /* GenerationProgressView.swift */; };
+		49FB20D168DA7DC653C1EFF8 /* FeatureFlagManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A440B4F104B8D456470D924 /* FeatureFlagManager.swift */; };
 		8035767A01ACA357D1DDC80D /* GenerationPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = C812228715DA53E2D9891E88 /* GenerationPhase.swift */; };
 		87A735729EC3340C30322699 /* PexelsResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B53EB23738A5590695C96F8 /* PexelsResponse.swift */; };
 		933DBE5CEA59F96F234ED298 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 412F18B9BC63908E6BBAB9F0 /* AVFoundation.framework */; };
@@ -25,6 +29,7 @@
 		B8D6E73BFF5639F8B5F4EDE4 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 40EA00C5226FAA70E42E3804 /* FirebaseStorage */; };
 		C55FCBCC865B013890F07D0E /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB95D298B73C1441B667A650 /* QuartzCore.framework */; };
 		CAEE6CD35D7AE708457DB5B8 /* VideoPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68D3F3D2513951678F48B15 /* VideoPreviewView.swift */; };
+		D446DDDA047847E10DC719A2 /* StoreConfiguration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 4D4549C5BE9A941B1DFD4D7E /* StoreConfiguration.storekit */; };
 		DF06214C463CBE548E9B92C1 /* VoiceoverGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F76CCA176C188405CD18C3F /* VoiceoverGenerator.swift */; };
 		E44E7033A0815645854DEC27 /* TempFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F509768D5BF0D06737631A7E /* TempFileManager.swift */; };
 		EFD5D5CE8D5AA276F8C64784 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF51F62C3EADD5D2F2B3059 /* AVKit.framework */; };
@@ -43,17 +48,22 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		14798FB17F2A8621230C2F35 /* UsageTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageTracker.swift; sourceTree = "<group>"; };
 		25B0DAE12E716A27E713B50C /* Faceless.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Faceless.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2BB4CF7CEF2309EF35EF5D40 /* ReelsBlueprintTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReelsBlueprintTests.swift; sourceTree = "<group>"; };
 		35C479FEB724BA5A2E333DE7 /* VoiceoverGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceoverGeneratorTests.swift; sourceTree = "<group>"; };
 		3F82A5568ECB048899E9AE55 /* BlueprintService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlueprintService.swift; sourceTree = "<group>"; };
 		412F18B9BC63908E6BBAB9F0 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		4375F917090C0E40D3DD20C4 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
+		4A440B4F104B8D456470D924 /* FeatureFlagManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagManager.swift; sourceTree = "<group>"; };
+		4D4549C5BE9A941B1DFD4D7E /* StoreConfiguration.storekit */ = {isa = PBXFileReference; path = StoreConfiguration.storekit; sourceTree = "<group>"; };
 		4F76CCA176C188405CD18C3F /* VoiceoverGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceoverGenerator.swift; sourceTree = "<group>"; };
 		53BCA41C6DA730ACDF302914 /* FacelessApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacelessApp.swift; sourceTree = "<group>"; };
 		555719F57EB73EEF0AE83F6B /* FacelessTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FacelessTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5738791F828E015D3DFE8B3D /* GenerationProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationProgressView.swift; sourceTree = "<group>"; };
 		6B76A8E3CB64E3229FA06730 /* UserTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTier.swift; sourceTree = "<group>"; };
 		910EB8AFA1CBCDE7FCA47554 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		94159C4AB89BF5C7E6FA2ACC /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		9B3CF9C5BA6B2A1C272593F7 /* AutoUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoUploader.swift; sourceTree = "<group>"; };
 		9B53EB23738A5590695C96F8 /* PexelsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PexelsResponse.swift; sourceTree = "<group>"; };
 		A01F41CE73D00738C6E42FEE /* ReelsRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReelsRenderer.swift; sourceTree = "<group>"; };
@@ -90,6 +100,7 @@
 			children = (
 				5738791F828E015D3DFE8B3D /* GenerationProgressView.swift */,
 				910EB8AFA1CBCDE7FCA47554 /* HomeView.swift */,
+				94159C4AB89BF5C7E6FA2ACC /* PaywallView.swift */,
 				A68D3F3D2513951678F48B15 /* VideoPreviewView.swift */,
 			);
 			path = Views;
@@ -100,6 +111,7 @@
 			children = (
 				E509A86AB20D177FCDE1CF5D /* Assets.xcassets */,
 				CA670A251DEA4273F84F04B8 /* mock_blueprint.json */,
+				4D4549C5BE9A941B1DFD4D7E /* StoreConfiguration.storekit */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -163,7 +175,9 @@
 			children = (
 				9B3CF9C5BA6B2A1C272593F7 /* AutoUploader.swift */,
 				3F82A5568ECB048899E9AE55 /* BlueprintService.swift */,
+				4A440B4F104B8D456470D924 /* FeatureFlagManager.swift */,
 				A01F41CE73D00738C6E42FEE /* ReelsRenderer.swift */,
+				4375F917090C0E40D3DD20C4 /* SubscriptionManager.swift */,
 				D030C7A84040AE6382930914 /* VideoFetcher.swift */,
 				4F76CCA176C188405CD18C3F /* VoiceoverGenerator.swift */,
 			);
@@ -174,6 +188,7 @@
 			isa = PBXGroup;
 			children = (
 				F509768D5BF0D06737631A7E /* TempFileManager.swift */,
+				14798FB17F2A8621230C2F35 /* UsageTracker.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -285,6 +300,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FF0CBA4B036D9DBABC4DCDE2 /* Assets.xcassets in Resources */,
+				D446DDDA047847E10DC719A2 /* StoreConfiguration.storekit in Resources */,
 				472C8A58EE9D5230800A1124 /* mock_blueprint.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -299,14 +315,18 @@
 				A68E5F2FAD86C8EF91485348 /* AutoUploader.swift in Sources */,
 				257BD46423D340A696B784AB /* BlueprintService.swift in Sources */,
 				2836762CBEA89B733CCCC9B2 /* FacelessApp.swift in Sources */,
+				49FB20D168DA7DC653C1EFF8 /* FeatureFlagManager.swift in Sources */,
 				8035767A01ACA357D1DDC80D /* GenerationPhase.swift in Sources */,
 				47AC9DD06F6868601711E1E0 /* GenerationProgressView.swift in Sources */,
 				A120A2E9944B2F384ED3F711 /* HomeView.swift in Sources */,
+				38B935529AAECE255E53204E /* PaywallView.swift in Sources */,
 				87A735729EC3340C30322699 /* PexelsResponse.swift in Sources */,
 				2903BE5DEF5216293CFE3BCC /* ReelGeneratorViewModel.swift in Sources */,
 				17DB6F8F7FFBE87E84BDF9B2 /* ReelsBlueprint.swift in Sources */,
 				0E010ECCA910D3FF3DBD0736 /* ReelsRenderer.swift in Sources */,
+				0258D9362D2F0B4AF483B3F1 /* SubscriptionManager.swift in Sources */,
 				E44E7033A0815645854DEC27 /* TempFileManager.swift in Sources */,
+				2C7DB59192916B0F1879AFE5 /* UsageTracker.swift in Sources */,
 				01FA16525D06A5668D7720AC /* UserTier.swift in Sources */,
 				2716ADBE337DFA48BDBCABDD /* VideoFetcher.swift in Sources */,
 				CAEE6CD35D7AE708457DB5B8 /* VideoPreviewView.swift in Sources */,

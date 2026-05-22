@@ -63,7 +63,9 @@ class ReelGeneratorViewModel: ObservableObject {
     /// Starts the full reel generation pipeline.
     /// In Sprint 1, this loads a mock blueprint, generates TTS voiceover,
     /// and falls back gracefully when no source video is available.
-    func generateReel() {
+    /// Starts the full reel generation pipeline.
+    /// - Parameter isPro: Whether the user has a pro subscription. Determines watermark.
+    func generateReel(isPro: Bool) {
         guard !topicInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             errorMessage = "Lütfen bir konu girin."
             return
@@ -75,12 +77,12 @@ class ReelGeneratorViewModel: ObservableObject {
         generationTask = Task { [weak self] in
             guard let self else { return }
             
-            await self.runPipeline()
+            await self.runPipeline(isPro: isPro)
         }
     }
     
     /// The actual async pipeline execution
-    private func runPipeline() async {
+    private func runPipeline(isPro: Bool) async {
         // Reset state
         isGenerating = true
         errorMessage = nil
@@ -121,7 +123,7 @@ class ReelGeneratorViewModel: ObservableObject {
                 audioURL: audioURL,
                 scenes: blueprint.scenes,
                 resolution: .hd1080,
-                watermarkText: "Made with Faceless ✨" // TODO: Feature gate in Sprint 3
+                watermarkText: isPro ? nil : "Made with Faceless ✨"
             )
             
             logger.info("Video rendered at: \(videoURL.lastPathComponent)")

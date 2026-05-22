@@ -1,0 +1,53 @@
+{
+  "identifier" : "33A70275",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_failGracePeriodSet" : false,
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "F9E58A63",
+      "localizations" : [
+
+      ],
+      "name" : "Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "F5B8BAA2",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlock all pro features",
+              "displayName" : "Faceless Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "faceless_pro_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "F9E58A63",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
