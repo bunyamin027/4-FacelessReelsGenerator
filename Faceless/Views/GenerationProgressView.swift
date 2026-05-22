@@ -86,6 +86,21 @@ struct GenerationProgressView: View {
     
     private var progressRing: some View {
         ZStack {
+            // Background pulsing rings
+            Circle()
+                .fill(Color(hex: "8B5CF6").opacity(0.1))
+                .frame(width: ringSize * 1.5, height: ringSize * 1.5)
+                .scaleEffect(iconBounce ? 1.15 : 0.85)
+                .opacity(iconBounce ? 0 : 1)
+                .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: false), value: iconBounce)
+
+            Circle()
+                .fill(Color(hex: "EC4899").opacity(0.08))
+                .frame(width: ringSize * 1.8, height: ringSize * 1.8)
+                .scaleEffect(iconBounce ? 1.25 : 0.9)
+                .opacity(iconBounce ? 0 : 1)
+                .animation(.easeInOut(duration: 2.5).repeatForever(autoreverses: false).delay(0.5), value: iconBounce)
+                
             // Background ring
             Circle()
                 .stroke(
@@ -113,6 +128,7 @@ struct GenerationProgressView: View {
                     )
                 )
                 .frame(width: ringSize, height: ringSize)
+                .rotationEffect(.degrees(ringRotation))
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 0.6), value: progress)
             
@@ -317,6 +333,11 @@ struct GenerationProgressView: View {
         // Icon bounce loop
         withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
             iconBounce = true
+        }
+        
+        // Rotate the progress ring gradient
+        withAnimation(.linear(duration: 4.0).repeatForever(autoreverses: false)) {
+            ringRotation = 360
         }
     }
     

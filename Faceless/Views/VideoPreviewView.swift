@@ -92,7 +92,7 @@ struct VideoPreviewView: View {
         }
         .onAppear {
             setupPlayer()
-            withAnimation(.easeOut(duration: 0.5).delay(0.3)) {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.3)) {
                 buttonsVisible = true
             }
         }
@@ -296,9 +296,9 @@ struct VideoPreviewView: View {
             forName: .AVPlayerItemDidPlayToEndTime,
             object: avPlayer.currentItem,
             queue: .main
-        ) { _ in
-            avPlayer.seek(to: .zero)
-            avPlayer.play()
+        ) { [weak avPlayer] _ in
+            avPlayer?.seek(to: .zero)
+            avPlayer?.play()
         }
         
         avPlayer.play()

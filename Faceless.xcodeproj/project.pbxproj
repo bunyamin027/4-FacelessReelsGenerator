@@ -30,8 +30,10 @@
 		C55FCBCC865B013890F07D0E /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB95D298B73C1441B667A650 /* QuartzCore.framework */; };
 		CAEE6CD35D7AE708457DB5B8 /* VideoPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68D3F3D2513951678F48B15 /* VideoPreviewView.swift */; };
 		D446DDDA047847E10DC719A2 /* StoreConfiguration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 4D4549C5BE9A941B1DFD4D7E /* StoreConfiguration.storekit */; };
+		D5B7DC02E4D22CDE31B8C2F3 /* Milestone3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DCC9E79C5B5F13CC89FC0E7 /* Milestone3Tests.swift */; };
 		DF06214C463CBE548E9B92C1 /* VoiceoverGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F76CCA176C188405CD18C3F /* VoiceoverGenerator.swift */; };
 		E44E7033A0815645854DEC27 /* TempFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F509768D5BF0D06737631A7E /* TempFileManager.swift */; };
+		ED4312F9B8CA699CB6CD0DF3 /* ViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E36B02DDE3921886638C0F /* ViewModelTests.swift */; };
 		EFD5D5CE8D5AA276F8C64784 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF51F62C3EADD5D2F2B3059 /* AVKit.framework */; };
 		FBE905902F34E59448A8B44C /* ReelsBlueprintTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB4CF7CEF2309EF35EF5D40 /* ReelsBlueprintTests.swift */; };
 		FF0CBA4B036D9DBABC4DCDE2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E509A86AB20D177FCDE1CF5D /* Assets.xcassets */; };
@@ -49,6 +51,7 @@
 
 /* Begin PBXFileReference section */
 		14798FB17F2A8621230C2F35 /* UsageTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageTracker.swift; sourceTree = "<group>"; };
+		20E36B02DDE3921886638C0F /* ViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelTests.swift; sourceTree = "<group>"; };
 		25B0DAE12E716A27E713B50C /* Faceless.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Faceless.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2BB4CF7CEF2309EF35EF5D40 /* ReelsBlueprintTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReelsBlueprintTests.swift; sourceTree = "<group>"; };
 		35C479FEB724BA5A2E333DE7 /* VoiceoverGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceoverGeneratorTests.swift; sourceTree = "<group>"; };
@@ -62,6 +65,7 @@
 		555719F57EB73EEF0AE83F6B /* FacelessTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FacelessTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5738791F828E015D3DFE8B3D /* GenerationProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationProgressView.swift; sourceTree = "<group>"; };
 		6B76A8E3CB64E3229FA06730 /* UserTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTier.swift; sourceTree = "<group>"; };
+		7DCC9E79C5B5F13CC89FC0E7 /* Milestone3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Milestone3Tests.swift; sourceTree = "<group>"; };
 		910EB8AFA1CBCDE7FCA47554 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		94159C4AB89BF5C7E6FA2ACC /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		9B3CF9C5BA6B2A1C272593F7 /* AutoUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoUploader.swift; sourceTree = "<group>"; };
@@ -213,7 +217,9 @@
 		F847249EC056C1965412ADF1 /* FacelessTests */ = {
 			isa = PBXGroup;
 			children = (
+				7DCC9E79C5B5F13CC89FC0E7 /* Milestone3Tests.swift */,
 				2BB4CF7CEF2309EF35EF5D40 /* ReelsBlueprintTests.swift */,
+				20E36B02DDE3921886638C0F /* ViewModelTests.swift */,
 				35C479FEB724BA5A2E333DE7 /* VoiceoverGeneratorTests.swift */,
 			);
 			path = FacelessTests;
@@ -338,7 +344,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D5B7DC02E4D22CDE31B8C2F3 /* Milestone3Tests.swift in Sources */,
 				FBE905902F34E59448A8B44C /* ReelsBlueprintTests.swift in Sources */,
+				ED4312F9B8CA699CB6CD0DF3 /* ViewModelTests.swift in Sources */,
 				357EF6C54D574454DF3BF0DC /* VoiceoverGeneratorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
