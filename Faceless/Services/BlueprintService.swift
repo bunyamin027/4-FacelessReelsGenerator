@@ -97,6 +97,20 @@ actor BlueprintService: BlueprintServiceProtocol {
             }
         }
         
+        if endpointURL.absoluteString.contains("YOUR_USERNAME") {
+            logger.info("Using MOCK Blueprint because Cloudflare URL is not configured.")
+            try await Task.sleep(nanoseconds: 2_000_000_000) // Simulate network delay
+            return ReelsBlueprint(
+                title: "Mock Title",
+                description: "Mock Description",
+                scenes: [
+                    ReelScene(id: "1", duration: 3.0, visualPrompt: "nature landscape", voiceoverScript: "Welcome to Faceless.", visualType: .stockVideo, textOverlay: "Welcome"),
+                    ReelScene(id: "2", duration: 3.0, visualPrompt: "city night", voiceoverScript: "This is a mock generation.", visualType: .stockVideo, textOverlay: "Mock Video")
+                ],
+                backgroundAudio: .ambient
+            )
+        }
+        
         throw BlueprintError.maxRetriesReached(lastError)
     }
     
