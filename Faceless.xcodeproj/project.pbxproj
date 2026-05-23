@@ -52,14 +52,14 @@
 /* Begin PBXFileReference section */
 		14798FB17F2A8621230C2F35 /* UsageTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageTracker.swift; sourceTree = "<group>"; };
 		20E36B02DDE3921886638C0F /* ViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelTests.swift; sourceTree = "<group>"; };
-		25B0DAE12E716A27E713B50C /* Faceless.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Faceless.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		25B0DAE12E716A27E713B50C /* Faceless.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Faceless.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2BB4CF7CEF2309EF35EF5D40 /* ReelsBlueprintTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReelsBlueprintTests.swift; sourceTree = "<group>"; };
 		35C479FEB724BA5A2E333DE7 /* VoiceoverGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceoverGeneratorTests.swift; sourceTree = "<group>"; };
 		3F82A5568ECB048899E9AE55 /* BlueprintService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlueprintService.swift; sourceTree = "<group>"; };
 		412F18B9BC63908E6BBAB9F0 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		4375F917090C0E40D3DD20C4 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
 		4A440B4F104B8D456470D924 /* FeatureFlagManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagManager.swift; sourceTree = "<group>"; };
-		4D4549C5BE9A941B1DFD4D7E /* StoreConfiguration.storekit */ = {isa = PBXFileReference; path = StoreConfiguration.storekit; sourceTree = "<group>"; };
+		4D4549C5BE9A941B1DFD4D7E /* StoreConfiguration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = StoreConfiguration.storekit; sourceTree = "<group>"; };
 		4F76CCA176C188405CD18C3F /* VoiceoverGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceoverGenerator.swift; sourceTree = "<group>"; };
 		53BCA41C6DA730ACDF302914 /* FacelessApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacelessApp.swift; sourceTree = "<group>"; };
 		555719F57EB73EEF0AE83F6B /* FacelessTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FacelessTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -275,6 +275,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
+					8672607C5B6091700EAD7A3F = {
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 883FEF77077115602A429C9E /* Build configuration list for PBXProject "Faceless" */;
@@ -429,9 +432,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = ZS89AATCJ2;
 				INFOPLIST_FILE = Faceless/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -450,9 +456,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = ZS89AATCJ2;
 				INFOPLIST_FILE = Faceless/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
