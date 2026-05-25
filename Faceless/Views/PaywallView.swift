@@ -119,8 +119,8 @@ struct PaywallView: View {
                         
                         // Massive, glowing CTA button
                         Button {
-                            // Assuming SubscriptionManager has a purchase function
-                            // Task { await subManager.purchase() }
+                            subManager.activateTrialPro()
+                            dismiss()
                         } label: {
                             Text("Pro'ya Geç")
                                 .font(.title3.bold())

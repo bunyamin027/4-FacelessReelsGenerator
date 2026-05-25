@@ -11,6 +11,9 @@ packages:
   Firebase:
     url: https://github.com/firebase/firebase-ios-sdk
     majorVersion: 11.0.0
+  Lottie:
+    url: https://github.com/airbnb/lottie-ios.git
+    majorVersion: 4.0.0
 
 targets:
   Faceless:
@@ -29,7 +32,8 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "-"
-        DEVELOPMENT_TEAM: ""
+        "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "Apple Development"
+        DEVELOPMENT_TEAM: "ZS89AATCJ2"
       configs:
         Debug:
           DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
@@ -39,6 +43,8 @@ targets:
     dependencies:
       - package: Firebase
         product: FirebaseStorage
+      - package: Lottie
+        product: Lottie
       - sdk: AVFoundation.framework
       - sdk: AVKit.framework
       - sdk: QuartzCore.framework

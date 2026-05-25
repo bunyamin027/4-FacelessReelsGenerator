@@ -44,20 +44,25 @@ public struct PexelsVideo: Codable, Identifiable, Sendable {
 }
 
 // MARK: - PexelsVideoFile
-public struct PexelsVideoFile: Codable, Identifiable, Sendable {
-    public let id: Int
-    public let quality: String
+public struct PexelsVideoFile: Codable, Sendable {
+    public let rawID: Int?
+    public let quality: String?
     public let fileType: String?
     public let width: Int?
     public let height: Int?
-    public let link: String
-    
+    public let link: String?
+    public let fps: Double?
+
+    // Identifiable uyumu için güvenli ID
+    public var id: Int { rawID ?? abs(link?.hashValue ?? 0) }
+
     public enum CodingKeys: String, CodingKey {
-        case id
+        case rawID = "id"
         case quality
         case fileType = "file_type"
         case width
         case height
         case link
+        case fps
     }
 }

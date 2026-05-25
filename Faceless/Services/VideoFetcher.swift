@@ -40,7 +40,9 @@ public actor VideoFetcher {
     public static let shared = VideoFetcher()
     
     // Replace with your actual Pexels API key or fetch it from a config file
-    private let apiKey = "YOUR_PEXELS_API_KEY"
+    private let apiKey = "dw6ltlKiBzQDT7bnqatBJVYhChA9YjCtSbqJZLSyhpxx52v0t0j3AsXD"
+    // TODO: Add Pixabay API Key
+    private let pixabayApiKey = "YOUR_PIXABAY_API_KEY"
     private let logger = Logger(subsystem: "com.faceless.app", category: "VideoFetcher")
     
     // In-memory cache for downloaded videos by keyword
@@ -56,24 +58,21 @@ public actor VideoFetcher {
     public func fetchVideo(for query: String) async throws -> URL {
         let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         
-        // 1. Check cache first
-        if let cachedURL = videoCache[normalizedQuery], FileManager.default.fileExists(atPath: cachedURL.path) {
-            logger.info("Cache hit for query: \(normalizedQuery) -> \(cachedURL.path)")
-            return cachedURL
-        }
-        
-        logger.info("Fetching videos for query: \(normalizedQuery)")
+        // Cache her zaman atlanıyor — her oluşturmada farklı video gelsin
+        logger.info("Fetching fresh video for query: \(normalizedQuery)")
         
         // 2. Build URL and query items
         guard var urlComponents = URLComponents(string: "https://api.pexels.com/videos/search") else {
             throw VideoFetcherError.invalidURL
         }
         
+        let randomPage = Int.random(in: 1...5)
         urlComponents.queryItems = [
             URLQueryItem(name: "query", value: normalizedQuery),
             URLQueryItem(name: "orientation", value: "portrait"),
             URLQueryItem(name: "size", value: "medium"),
-            URLQueryItem(name: "per_page", value: "3")
+            URLQueryItem(name: "per_page", value: "15"),
+            URLQueryItem(name: "page", value: "\(randomPage)")
         ]
         
         guard let url = urlComponents.url else {
@@ -105,23 +104,45 @@ public actor VideoFetcher {
         // 5. Decode JSON
         let pexelsResponse = try JSONDecoder().decode(PexelsResponse.self, from: data)
         
-        // 6. Select a random video from the top 3
-        guard let randomVideo = pexelsResponse.videos.randomElement() else {
-            logger.error("No videos found for query: \(normalizedQuery)")
-            throw VideoFetcherError.noVideosFound
+        // 6. Select a random video — prefer longer ones (> 6s) for smoother looping
+        guard !pexelsResponse.videos.isEmpty else {
+            logger.error("No videos found on Pexels for query: \(normalizedQuery)")
+            return try await fetchFromPixabay(query: normalizedQuery)
+        }
+        
+        let validVideos = pexelsResponse.videos.filter { ($0.duration ?? 0) > 6 }
+        let selectedVideo: PexelsVideo
+        if let longVideo = validVideos.randomElement() {
+            selectedVideo = longVideo
+            logger.info("Selected video from Pexels (duration: \(longVideo.duration ?? 0)s)")
+        } else {
+            logger.warning("No Pexels videos longer than 6s found, falling back to Pixabay")
+            do {
+                return try await fetchFromPixabay(query: normalizedQuery)
+            } catch {
+                logger.error("Pixabay fallback failed, trying random short Pexels video...")
+                if let anyVideo = pexelsResponse.videos.randomElement() {
+                    selectedVideo = anyVideo
+                    logger.info("Selected short Pexels video (duration: \(anyVideo.duration ?? 0)s)")
+                } else {
+                    throw VideoFetcherError.noVideosFound
+                }
+            }
         }
         
         // 7. Find HD quality where height > width
-        guard let suitableFile = randomVideo.videoFiles.first(where: { file in
+        guard let suitableFile = selectedVideo.videoFiles.first(where: { file in
             let w = file.width ?? 0
             let h = file.height ?? 0
-            return file.quality.lowercased() == "hd" && h > w
-        }) else {
-            logger.error("No suitable HD portrait file found for video ID: \(randomVideo.id)")
-            throw VideoFetcherError.noSuitableVideoFile
+            let q = file.quality?.lowercased() ?? ""
+            return (q == "hd" || q == "uhd") && h > w && file.link != nil
+        }) ?? selectedVideo.videoFiles.first(where: { $0.link != nil }) else {
+            logger.error("No suitable video file found for video ID: \(selectedVideo.id)")
+            return try await fetchFromPixabay(query: normalizedQuery)
         }
-        
-        guard let downloadURL = URL(string: suitableFile.link) else {
+
+        guard let linkString = suitableFile.link,
+              let downloadURL = URL(string: linkString) else {
             throw VideoFetcherError.invalidURL
         }
         
@@ -132,6 +153,79 @@ public actor VideoFetcher {
         // 9. Cache and return
         videoCache[normalizedQuery] = localURL
         return localURL
+    }
+
+    private func fetchFromPixabay(query: String) async throws -> URL {
+        logger.info("Falling back to Pixabay for query: \(query)")
+        let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        
+        guard let url = URL(string: "https://pixabay.com/api/videos/?key=\(pixabayApiKey)&q=\(encodedQuery)&video_type=film") else {
+            throw VideoFetcherError.invalidURL
+        }
+        
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            throw VideoFetcherError.invalidResponse
+        }
+        
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hits = json["hits"] as? [[String: Any]], !hits.isEmpty else {
+            throw VideoFetcherError.noVideosFound
+        }
+        
+        // Filter by duration > 6s
+        let validHits = hits.filter { hit in
+            if let duration = hit["duration"] as? Int {
+                return duration > 6
+            }
+            return false
+        }
+        
+        guard let selectedHit = validHits.randomElement() ?? hits.randomElement(),
+              let videos = selectedHit["videos"] as? [String: Any] else {
+            throw VideoFetcherError.noVideosFound
+        }
+        
+        // Try to get large or medium quality video URL
+        guard let videoFormat = (videos["large"] as? [String: Any]) ?? (videos["medium"] as? [String: Any]) ?? (videos["small"] as? [String: Any]),
+              let videoURLString = videoFormat["url"] as? String,
+              let downloadURL = URL(string: videoURLString) else {
+            throw VideoFetcherError.noSuitableVideoFile
+        }
+        
+        logger.info("Downloading video from Pixabay: \(downloadURL.absoluteString)")
+        let localURL = try await downloadVideo(from: downloadURL)
+        
+        // Cache it manually
+        videoCache[query] = localURL
+        return localURL
+    }
+
+    /// Fetches multiple videos concurrently for an array of keywords.
+    ///
+    /// - Parameter keywords: An array of search keywords.
+    /// - Returns: An array of local file URLs containing the downloaded .mp4 files.
+    public func fetchVideos(for keywords: [String]) async throws -> [URL] {
+        logger.info("Fetching videos for \(keywords.count) scenes concurrently...")
+        
+        // Use withThrowingTaskGroup to fetch all videos in parallel
+        return try await withThrowingTaskGroup(of: (Int, URL).self) { group in
+            for (index, keyword) in keywords.enumerated() {
+                group.addTask {
+                    let url = try await self.fetchVideo(for: keyword)
+                    return (index, url)
+                }
+            }
+            
+            var results: [(Int, URL)] = []
+            for try await result in group {
+                results.append(result)
+            }
+            
+            // Re-order URLs to match the original keywords order
+            return results.sorted { $0.0 < $1.0 }.map { $1 }
+        }
     }
     
     private func downloadVideo(from url: URL) async throws -> URL {

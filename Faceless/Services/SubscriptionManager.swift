@@ -9,6 +9,27 @@ import StoreKit
 @MainActor
 public class SubscriptionManager: ObservableObject {
     @Published public var isPro: Bool = false
+
+    // MARK: - Trial / Debug bypass
+    /// Test modunda StoreKit'i atlamak için kullanılır.
+    /// Üretimde bu flag kaldırılır veya sunucu tarafı doğrulamaya bağlanır.
+    private let trialProKey = "faceless_trial_pro_activated"
+
+    public var isTrialProActive: Bool {
+        UserDefaults.standard.bool(forKey: trialProKey)
+    }
+
+    /// Deneme sürecinde Pro erişimi verir (satın alma olmadan).
+    public func activateTrialPro() {
+        UserDefaults.standard.set(true, forKey: trialProKey)
+        isPro = true
+    }
+
+    /// Trial'ı sıfırlar (isteğe bağlı kullanım).
+    public func deactivateTrialPro() {
+        UserDefaults.standard.removeObject(forKey: trialProKey)
+        isPro = false
+    }
     @Published public var products: [Product] = []
     
     private let productIDs = ["faceless_pro_monthly"]
@@ -16,7 +37,12 @@ public class SubscriptionManager: ObservableObject {
     
     public init() {
         updateListenerTask = listenForTransactions()
-        
+
+        // Trial pro aktifse hemen uygula, StoreKit'i bekleme
+        if UserDefaults.standard.bool(forKey: "faceless_trial_pro_activated") {
+            isPro = true
+        }
+
         Task {
             await loadProducts()
             await updateSubscriptionStatus()
@@ -90,7 +116,8 @@ public class SubscriptionManager: ObservableObject {
             }
         }
         
-        isPro = hasActiveSubscription
+        // Trial aktifse StoreKit sonucunu ezmeyiz
+        isPro = hasActiveSubscription || UserDefaults.standard.bool(forKey: trialProKey)
     }
     
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {

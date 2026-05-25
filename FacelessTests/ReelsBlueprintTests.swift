@@ -15,7 +15,7 @@ final class ReelsBlueprintTests: XCTestCase {
         let blueprint = try JSONDecoder().decode(ReelsBlueprint.self, from: data)
 
         XCTAssertEqual(blueprint.format, "Listicle")
-        XCTAssertEqual(blueprint.videoSearchKeyword, "city night aerial")
+        XCTAssertEqual(blueprint.scenes.first?.videoSearchKeyword, "city night aerial")
         XCTAssertEqual(blueprint.audioMood, "energetic")
         XCTAssertEqual(blueprint.textAnimationStyle, "typewriter")
         XCTAssertEqual(blueprint.scenes.count, 3)
@@ -29,7 +29,8 @@ final class ReelsBlueprintTests: XCTestCase {
         {
             "duration": 3.5,
             "on_screen_text": "Test text",
-            "voiceover_script": "Test voiceover"
+            "voiceover_script": "Test voiceover",
+            "video_search_keyword": "test keyword"
         }
         """
         let data = Data(json.utf8)
@@ -38,5 +39,6 @@ final class ReelsBlueprintTests: XCTestCase {
         XCTAssertEqual(scene.duration, 3.5)
         XCTAssertEqual(scene.onScreenText, "Test text")
         XCTAssertEqual(scene.voiceoverScript, "Test voiceover")
+        XCTAssertEqual(scene.videoSearchKeyword, "test keyword")
     }
 }

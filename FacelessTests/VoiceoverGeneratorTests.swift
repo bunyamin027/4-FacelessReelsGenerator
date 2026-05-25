@@ -107,8 +107,8 @@ final class VoiceoverGeneratorTests: XCTestCase {
 
     func testGenerateVoiceoverWithEmptyScriptsThrows() async {
         let scenes = [
-            Scene(duration: 3.0, onScreenText: "Visual only", voiceoverScript: ""),
-            Scene(duration: 2.0, onScreenText: "No narration", voiceoverScript: "   ")
+            Scene(duration: 3.0, onScreenText: "Visual only", voiceoverScript: "", videoSearchKeyword: "test"),
+            Scene(duration: 2.0, onScreenText: "No narration", voiceoverScript: "   ", videoSearchKeyword: "test")
         ]
 
         do {
@@ -192,9 +192,9 @@ final class VoiceoverGeneratorTests: XCTestCase {
         throw XCTSkip("AVSpeechSynthesizer.write() does not reliably produce audio on Simulator.")
         #else
         let scenes = [
-            Scene(duration: 3.0, onScreenText: "Sahne 1", voiceoverScript: "Birinci sahne metni."),
-            Scene(duration: 4.0, onScreenText: "Sahne 2", voiceoverScript: "İkinci sahne metni."),
-            Scene(duration: 2.5, onScreenText: "Sahne 3", voiceoverScript: "Üçüncü sahne.")
+            Scene(duration: 3.0, onScreenText: "Sahne 1", voiceoverScript: "Birinci sahne metni.", videoSearchKeyword: "test"),
+            Scene(duration: 4.0, onScreenText: "Sahne 2", voiceoverScript: "İkinci sahne metni.", videoSearchKeyword: "test"),
+            Scene(duration: 2.5, onScreenText: "Sahne 3", voiceoverScript: "Üçüncü sahne.", videoSearchKeyword: "test")
         ]
 
         let combinedURL = try await sut.generateVoiceover(for: scenes)
@@ -223,9 +223,9 @@ final class VoiceoverGeneratorTests: XCTestCase {
         throw XCTSkip("AVSpeechSynthesizer.write() does not reliably produce audio on Simulator.")
         #else
         let scenes = [
-            Scene(duration: 2.0, onScreenText: "Visual", voiceoverScript: ""),
-            Scene(duration: 3.0, onScreenText: "Narrated", voiceoverScript: "Bu sahne sesli."),
-            Scene(duration: 2.0, onScreenText: "Silent", voiceoverScript: "   ")
+            Scene(duration: 2.0, onScreenText: "Visual", voiceoverScript: "", videoSearchKeyword: "test"),
+            Scene(duration: 3.0, onScreenText: "Narrated", voiceoverScript: "Bu sahne sesli.", videoSearchKeyword: "test"),
+            Scene(duration: 2.0, onScreenText: "Silent", voiceoverScript: "   ", videoSearchKeyword: "test")
         ]
 
         // Should succeed — only the middle scene has valid text

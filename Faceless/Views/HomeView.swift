@@ -4,6 +4,8 @@
 // Premium dark-themed home screen for the Faceless reel generator.
 
 import SwiftUI
+import AVKit
+import PhotosUI
 
 // MARK: - HomeView
 
@@ -14,13 +16,18 @@ struct HomeView: View {
     // MARK: - Properties
     
     @StateObject private var viewModel = ReelGeneratorViewModel()
+    @StateObject private var videoHistory = VideoHistoryManager.shared
     @State private var isTextFieldFocused: Bool = false
     @State private var buttonPressed: Bool = false
     @State private var showError: Bool = false
     @EnvironmentObject private var subManager: SubscriptionManager
     @State private var showPaywall: Bool = false
     @State private var glowAnimation: Bool = false
+    @State private var selectedHistoryItem: VideoHistoryItem?
     @Namespace private var animationNamespace
+    
+    @State private var selectedPickerItem: PhotosPickerItem? = nil
+    @State private var isLoadingVideo = false
     
     // MARK: - Colors
     
@@ -67,6 +74,9 @@ struct HomeView: View {
                         inputSection
                             .padding(.top, 48)
                         
+                        mediaPickerSection
+                            .padding(.top, 24)
+                        
                         generateButton
                             .padding(.top, 32)
                         
@@ -91,7 +101,7 @@ struct HomeView: View {
                 }
             }
             .navigationBarHidden(true)
-            .navigationDestination(isPresented: $viewModel.isShowingPreview) {
+            .fullScreenCover(isPresented: $viewModel.isShowingPreview) {
                 VideoPreviewView(
                     videoURL: viewModel.generatedVideoURL,
                     onNewVideo: {
@@ -272,6 +282,12 @@ struct HomeView: View {
         Button {
             guard !viewModel.isGenerating else { return }
             
+            // ✅ Madde 5: Klavyeyi kapat
+            UIApplication.shared.sendAction(
+                #selector(UIResponder.resignFirstResponder),
+                to: nil, from: nil, for: nil
+            )
+            
             // Limit Check & Paywall Presentation
             if !subManager.isPro && UsageTracker.shared.hasReachedFreeLimit() {
                 showPaywall = true
@@ -355,36 +371,130 @@ struct HomeView: View {
                     .foregroundColor(Color.white.opacity(0.6))
                 
                 Spacer()
+                
+                if !videoHistory.items.isEmpty {
+                    Text("\(videoHistory.items.count) video")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(Color(hex: "8B5CF6").opacity(0.7))
+                }
             }
             
-            // Empty state
-            VStack(spacing: 16) {
-                Image(systemName: "film.stack")
-                    .font(.system(size: 36))
-                    .foregroundColor(Color.white.opacity(0.1))
-                
-                Text("Henüz video oluşturmadınız")
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundColor(Color.white.opacity(0.2))
-                
-                Text("Yukarıdan bir konu girerek\nilk videonuzu oluşturun")
-                    .font(.system(size: 13, weight: .regular, design: .rounded))
-                    .foregroundColor(Color.white.opacity(0.12))
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
+            if videoHistory.items.isEmpty {
+                // Empty state
+                VStack(spacing: 16) {
+                    Image(systemName: "film.stack")
+                        .font(.system(size: 36))
+                        .foregroundColor(Color.white.opacity(0.1))
+                    
+                    Text("Henüz video oluşturmadınız")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(Color.white.opacity(0.2))
+                    
+                    Text("Yukarıdan bir konu girerek\nilk videonuzu oluşturun")
+                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                        .foregroundColor(Color.white.opacity(0.12))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white.opacity(0.03))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        )
+                )
+                .accessibilityIdentifier("recentGenerationsEmpty")
+            } else {
+                // Video history list
+                VStack(spacing: 12) {
+                    ForEach(videoHistory.items) { item in
+                        recentVideoRow(item: item)
+                    }
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 40)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.03))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
-                    )
-            )
-            .accessibilityIdentifier("recentGenerationsEmpty")
         }
+        .sheet(item: $selectedHistoryItem) { item in
+            if let url = item.fileURL {
+                NavigationStack {
+                    VideoPreviewView(
+                        videoURL: url,
+                        onNewVideo: { }
+                    )
+                }
+            }
+        }
+    }
+    
+    /// A single row in the recent generations list
+    private func recentVideoRow(item: VideoHistoryItem) -> some View {
+        HStack(spacing: 14) {
+            // Video icon / thumbnail placeholder
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(hex: "8B5CF6").opacity(0.2),
+                                Color(hex: "EC4899").opacity(0.15)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                Image(systemName: "play.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.white.opacity(0.8))
+            }
+            .frame(width: 52, height: 52)
+            .onTapGesture {
+                selectedHistoryItem = item
+            }
+            
+            // Topic + date
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.topic)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Text(item.formattedDate)
+                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                    .foregroundColor(Color.white.opacity(0.35))
+            }
+            .onTapGesture {
+                selectedHistoryItem = item
+            }
+            
+            Spacer()
+            
+            // Delete button
+            Button {
+                withAnimation {
+                    videoHistory.removeItem(item)
+                }
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.red.opacity(0.8))
+                    .frame(width: 44, height: 44) // Tap target
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
+        )
+        .accessibilityIdentifier("historyItem_\(item.id)")
     }
     
     // MARK: - Ambient Glow
@@ -408,6 +518,160 @@ struct HomeView: View {
                 .scaleEffect(glowAnimation ? 0.9 : 1.1)
         }
         .ignoresSafeArea()
+    }
+    
+    // MARK: - Media Picker Section
+    
+    private var mediaPickerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Section label
+            HStack(spacing: 6) {
+                Image(systemName: "iphone.badge.play")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Color(hex: "8B5CF6"))
+                
+                Text("EKRAN KAYDI (MOCKUP MODU)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .tracking(2)
+            }
+            
+            ZStack {
+                // Glass background
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(glassBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                viewModel.userMediaURL != nil
+                                    ? Color(hex: "8B5CF6").opacity(0.5)
+                                    : glassBorder,
+                                lineWidth: 1
+                            )
+                    )
+                
+                HStack(spacing: 16) {
+                    if isLoadingVideo {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(Color(hex: "8B5CF6"))
+                            .frame(width: 24, height: 24)
+                        
+                        Text("Video yükleniyor...")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(Color.white.opacity(0.6))
+                        
+                        Spacer()
+                    } else if let userURL = viewModel.userMediaURL {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(hex: "8B5CF6").opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(Color(hex: "EC4899"))
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Ekran Kaydı Seçildi 📱")
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundColor(.white)
+                            
+                            Text("Mockup modunda video birleştirilecek")
+                                .font(.system(size: 12, weight: .regular, design: .rounded))
+                                .foregroundColor(Color.white.opacity(0.4))
+                        }
+                        
+                        Spacer()
+                        
+                        // Clear button
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                viewModel.userMediaURL = nil
+                                selectedPickerItem = nil
+                            }
+                        } label: {
+                            Image(systemName: "trash.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(Color.red.opacity(0.7))
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        PhotosPicker(selection: $selectedPickerItem, matching: .videos) {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.06))
+                                        .frame(width: 36, height: 36)
+                                    
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Ekran Kaydı Ekle")
+                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.white)
+                                    
+                                    Text("iPhone 15 mockup'ı içine giydirmek için")
+                                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                                        .foregroundColor(Color.white.opacity(0.4))
+                                }
+                                
+                                Spacer()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .frame(height: 64)
+            }
+            .frame(height: 64)
+        }
+        .onChange(of: selectedPickerItem) { _, item in
+            guard let item = item else { return }
+            isLoadingVideo = true
+            
+            Task {
+                do {
+                    if let movie = try await item.loadTransferable(type: Movie.self) {
+                        await MainActor.run {
+                            viewModel.userMediaURL = movie.url
+                            isLoadingVideo = false
+                        }
+                    } else {
+                        await MainActor.run {
+                            viewModel.errorMessage = "Video formatı desteklenmiyor."
+                            isLoadingVideo = false
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        viewModel.errorMessage = "Video yüklenemedi: \(error.localizedDescription)"
+                        isLoadingVideo = false
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Movie Transferable Representation
+
+struct Movie: Transferable {
+    let url: URL
+    
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let copy = TempFileManager.shared.uniqueTempURL(extension: "mp4")
+            try FileManager.default.copyItem(at: received.file, to: copy)
+            return Movie(url: copy)
+        }
     }
 }
 

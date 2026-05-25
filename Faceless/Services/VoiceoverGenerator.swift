@@ -60,7 +60,6 @@ final class VoiceoverGenerator: @unchecked Sendable {
     /// Configuration for TTS voice parameters.
     struct VoiceConfig: Sendable {
         /// Speech rate. 0.0 (slowest) to 1.0 (fastest).
-        /// Default is `AVSpeechUtteranceDefaultSpeechRate`.
         var rate: Float
 
         /// Pitch multiplier. 0.5 (low) to 2.0 (high). Default is 1.0.
@@ -78,6 +77,7 @@ final class VoiceoverGenerator: @unchecked Sendable {
         /// Post-utterance delay in seconds.
         var postUtteranceDelay: TimeInterval
 
+        /// Robotik varsayılan ayarlar
         static let `default` = VoiceConfig(
             rate: AVSpeechUtteranceDefaultSpeechRate,
             pitch: 1.0,
@@ -85,6 +85,19 @@ final class VoiceoverGenerator: @unchecked Sendable {
             language: "tr-TR",
             preUtteranceDelay: 0.0,
             postUtteranceDelay: 0.0
+        )
+
+        /// Reels'e optimize edilmiş doğal anlatıcı ayarları:
+        /// - Daha yavaş rate → anlatıcı tonu
+        /// - Biraz yüksek pitch → enerji ve canlılık
+        /// - postUtteranceDelay → sahneler arası doğal nefes efekti
+        static let reelsOptimized = VoiceConfig(
+            rate: 0.48,
+            pitch: 1.08,
+            volume: 1.0,
+            language: "tr-TR",
+            preUtteranceDelay: 0.1,
+            postUtteranceDelay: 0.4
         )
     }
 
@@ -95,13 +108,17 @@ final class VoiceoverGenerator: @unchecked Sendable {
 
     private let logger = Logger(subsystem: "com.faceless.app", category: "VoiceoverGenerator")
 
+    /// Active synthesizers retained to prevent premature deallocation during asynchronous writing.
+    @MainActor
+    private var activeSynthesizers: [AVSpeechSynthesizer] = []
+
     // MARK: - Initialization
 
     /// Creates a new `VoiceoverGenerator`.
-    /// - Parameter voiceConfig: Voice configuration. Defaults to `.default` (Turkish, normal rate/pitch).
-    init(voiceConfig: VoiceConfig = .default) {
+    /// - Parameter voiceConfig: Voice configuration. Defaults to `.reelsOptimized` for natural Reels sound.
+    init(voiceConfig: VoiceConfig = .reelsOptimized) {
         self.voiceConfig = voiceConfig
-        logger.info("VoiceoverGenerator initialized with language: \(voiceConfig.language)")
+        logger.info("VoiceoverGenerator initialized — rate: \(voiceConfig.rate), pitch: \(voiceConfig.pitch), lang: \(voiceConfig.language)")
     }
 
     // MARK: - Public API
@@ -168,16 +185,6 @@ final class VoiceoverGenerator: @unchecked Sendable {
         }
     }
 
-    /// Synthesizes speech from text and writes the audio to a `.caf` file.
-    ///
-    /// Uses `AVSpeechSynthesizer.write(_:)` to capture PCM audio buffers
-    /// and writes them to a Core Audio File (.caf) using `AVAudioFile`.
-    ///
-    /// - Parameters:
-    ///   - text: The text to convert to speech.
-    ///   - language: BCP-47 language code (e.g., "tr-TR"). Defaults to the configured language.
-    /// - Returns: URL of the generated `.caf` audio file.
-    /// - Throws: `VoiceoverError` if text is empty or synthesis fails.
     func synthesizeSpeech(text: String, language: String? = nil) async throws -> URL {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -185,12 +192,9 @@ final class VoiceoverGenerator: @unchecked Sendable {
             throw VoiceoverError.emptyText
         }
 
-        let lang = language ?? voiceConfig.language
+        logger.info("Using completely offline, free Apple Premium Voices for TTS.")
         let outputURL = TempFileManager.shared.uniqueTempURL(extension: "caf")
-
-        logger.debug("Synthesizing: \"\(trimmedText.prefix(50))...\" → \(outputURL.lastPathComponent)")
-
-        // Build the utterance
+        
         let utterance = AVSpeechUtterance(string: trimmedText)
         utterance.rate = voiceConfig.rate
         utterance.pitchMultiplier = voiceConfig.pitch
@@ -198,14 +202,128 @@ final class VoiceoverGenerator: @unchecked Sendable {
         utterance.preUtteranceDelay = voiceConfig.preUtteranceDelay
         utterance.postUtteranceDelay = voiceConfig.postUtteranceDelay
 
-        if let voice = AVSpeechSynthesisVoice(language: lang) {
+        let lang = language ?? voiceConfig.language
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+        
+        // Find best quality available offline voice (Premium > Enhanced > Default)
+        let premiumVoice = voices.first(where: { $0.language == lang && $0.quality == .premium }) ??
+                           voices.first(where: { $0.language == lang && $0.quality == .enhanced }) ??
+                           AVSpeechSynthesisVoice(language: lang)
+        
+        if let voice = premiumVoice {
             utterance.voice = voice
+            logger.info("Selected Voice: \(voice.name) (Quality: \(voice.quality == .premium ? "Premium" : (voice.quality == .enhanced ? "Enhanced" : "Default")))")
         } else {
             logger.warning("No voice found for language '\(lang)'. Using default voice.")
         }
 
-        // AVSpeechSynthesizer.write() must be called on the main thread
-        return try await performSynthesis(utterance: utterance, outputURL: outputURL)
+        return try await performLocalSynthesis(utterance: utterance, outputURL: outputURL)
+    }
+
+    /// Performs local speech synthesis using AVSpeechSynthesizer on the main actor.
+    @MainActor
+    private func performLocalSynthesis(
+        utterance: AVSpeechUtterance,
+        outputURL: URL
+    ) async throws -> URL {
+        #if targetEnvironment(simulator)
+        logger.info("Simulator detected. Creating a mock silent audio file for voiceover to prevent hanging.")
+        do {
+            guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44100, channels: 1, interleaved: false) else {
+                throw VoiceoverError.audioFileCreationFailed("Failed to create AVAudioFormat")
+            }
+            let audioFile = try AVAudioFile(forWriting: outputURL, settings: format.settings)
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44100) else {
+                throw VoiceoverError.audioFileCreationFailed("Failed to create AVAudioPCMBuffer")
+            }
+            buffer.frameLength = 44100
+            // Buffer is zero-initialized by default (silence)
+            try audioFile.write(from: buffer)
+            return outputURL
+        } catch {
+            logger.error("Failed to create mock audio file: \(error.localizedDescription)")
+            throw VoiceoverError.audioFileCreationFailed(error.localizedDescription)
+        }
+        #else
+        let synthesizer = AVSpeechSynthesizer()
+        activeSynthesizers.append(synthesizer)
+        defer {
+            activeSynthesizers.removeAll { $0 === synthesizer }
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            var audioFile: AVAudioFile?
+            var hasResumed = false
+
+            synthesizer.write(utterance) { [logger, synthesizer] buffer in
+                // Keep reference to synthesizer inside closure to prevent it from being deallocated
+                // until synthesis completes or calls fail/finish.
+                let _ = synthesizer
+
+                guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
+                    if !hasResumed {
+                        hasResumed = true
+                        if audioFile != nil {
+                            continuation.resume(returning: outputURL)
+                        } else {
+                            continuation.resume(
+                                throwing: VoiceoverError.noAudioBufferReceived
+                            )
+                        }
+                    }
+                    return
+                }
+
+                guard pcmBuffer.frameLength > 1 else {
+                    if !hasResumed {
+                        hasResumed = true
+                        if audioFile != nil {
+                            continuation.resume(returning: outputURL)
+                        } else {
+                            continuation.resume(
+                                throwing: VoiceoverError.noAudioBufferReceived
+                            )
+                        }
+                    }
+                    return
+                }
+
+                if audioFile == nil {
+                    do {
+                        audioFile = try AVAudioFile(
+                            forWriting: outputURL,
+                            settings: pcmBuffer.format.settings,
+                            commonFormat: pcmBuffer.format.commonFormat,
+                            interleaved: pcmBuffer.format.isInterleaved
+                        )
+                    } catch {
+                        logger.error("Audio file creation failed: \(error.localizedDescription)")
+                        if !hasResumed {
+                            hasResumed = true
+                            continuation.resume(
+                                throwing: VoiceoverError.audioFileCreationFailed(
+                                    error.localizedDescription
+                                )
+                            )
+                        }
+                        return
+                    }
+                }
+
+                do {
+                    try audioFile?.write(from: pcmBuffer)
+                } catch {
+                    logger.error("Buffer write failed: \(error.localizedDescription)")
+                    if !hasResumed {
+                        hasResumed = true
+                        continuation.resume(
+                            throwing: VoiceoverError.synthesisFailure(error.localizedDescription)
+                        )
+                    }
+                }
+            }
+        }
+        #endif
     }
 
     /// Combines multiple audio files into a single `.m4a` file using `AVMutableComposition`.
@@ -295,93 +413,7 @@ final class VoiceoverGenerator: @unchecked Sendable {
         }
     }
 
-    // MARK: - Private — Synthesis
 
-    /// Performs the actual speech synthesis on the main actor.
-    ///
-    /// `AVSpeechSynthesizer.write()` delivers PCM buffers via a callback.
-    /// We accumulate them into an `AVAudioFile` and resolve the continuation
-    /// when an empty (zero-frame) buffer signals completion.
-    @MainActor
-    private func performSynthesis(
-        utterance: AVSpeechUtterance,
-        outputURL: URL
-    ) async throws -> URL {
-
-        return try await withCheckedThrowingContinuation { continuation in
-            let synthesizer = AVSpeechSynthesizer()
-            var audioFile: AVAudioFile?
-            var hasResumed = false
-
-            synthesizer.write(utterance) { [logger] buffer in
-                guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
-                    // Non-PCM buffer or final nil signal → complete
-                    if !hasResumed {
-                        hasResumed = true
-                        if audioFile != nil {
-                            continuation.resume(returning: outputURL)
-                        } else {
-                            continuation.resume(
-                                throwing: VoiceoverError.noAudioBufferReceived
-                            )
-                        }
-                    }
-                    return
-                }
-
-                // Empty buffer signals end-of-synthesis
-                guard pcmBuffer.frameLength > 0 else {
-                    if !hasResumed {
-                        hasResumed = true
-                        if audioFile != nil {
-                            continuation.resume(returning: outputURL)
-                        } else {
-                            continuation.resume(
-                                throwing: VoiceoverError.noAudioBufferReceived
-                            )
-                        }
-                    }
-                    return
-                }
-
-                // Lazily create the audio file on first non-empty buffer
-                if audioFile == nil {
-                    do {
-                        audioFile = try AVAudioFile(
-                            forWriting: outputURL,
-                            settings: pcmBuffer.format.settings,
-                            commonFormat: pcmBuffer.format.commonFormat,
-                            interleaved: pcmBuffer.format.isInterleaved
-                        )
-                    } catch {
-                        logger.error("Audio file creation failed: \(error.localizedDescription)")
-                        if !hasResumed {
-                            hasResumed = true
-                            continuation.resume(
-                                throwing: VoiceoverError.audioFileCreationFailed(
-                                    error.localizedDescription
-                                )
-                            )
-                        }
-                        return
-                    }
-                }
-
-                // Append buffer to file
-                do {
-                    try audioFile?.write(from: pcmBuffer)
-                } catch {
-                    logger.error("Buffer write failed: \(error.localizedDescription)")
-                    if !hasResumed {
-                        hasResumed = true
-                        continuation.resume(
-                            throwing: VoiceoverError.synthesisFailure(error.localizedDescription)
-                        )
-                    }
-                }
-            }
-        }
-    }
 
     // MARK: - Private — Cleanup
 

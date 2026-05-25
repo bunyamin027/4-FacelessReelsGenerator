@@ -44,6 +44,9 @@ class ReelGeneratorViewModel: ObservableObject {
     /// The loaded blueprint for the current generation
     @Published var currentBlueprint: ReelsBlueprint?
     
+    /// User selected media URL (e.g. screen recording) for iPhone Mockup overlay
+    @Published var userMediaURL: URL? = nil
+    
     // MARK: - Services
     
     private let voiceoverGenerator = VoiceoverGenerator()
@@ -103,8 +106,10 @@ class ReelGeneratorViewModel: ObservableObject {
             try Task.checkCancellation()
             await transitionTo(.fetchingVideo)
             
-            let sourceVideoURL = try await videoFetcher.fetchVideo(for: blueprint.videoSearchKeyword)
-            logger.info("Video fetched at: \(sourceVideoURL.lastPathComponent)")
+            // Extract keywords for each scene
+            let keywords = blueprint.scenes.map { $0.videoSearchKeyword }
+            let sourceVideoURLs = try await videoFetcher.fetchVideos(for: keywords)
+            logger.info("\(sourceVideoURLs.count) videos fetched.")
             
             // ── Phase 3: Generate Voiceover ──────────────────────
             try Task.checkCancellation()
@@ -119,9 +124,11 @@ class ReelGeneratorViewModel: ObservableObject {
             await transitionTo(.rendering)
             
             let videoURL = try await reelsRenderer.renderReel(
-                videoURL: sourceVideoURL,
+                videoURLs: sourceVideoURLs,
                 audioURL: audioURL,
+                userMediaURL: self.userMediaURL,
                 scenes: blueprint.scenes,
+                textAnimationStyle: blueprint.textAnimationStyle,
                 resolution: .hd1080,
                 watermarkText: isPro ? nil : "Made with Faceless ✨"
             )
@@ -132,10 +139,16 @@ class ReelGeneratorViewModel: ObservableObject {
             try Task.checkCancellation()
             await transitionTo(.completed)
             
-            generatedVideoURL = videoURL
+            // Videoyu kalıcı olarak Documents'a kaydet + geçmişe ekle
+            let permanentURL = VideoHistoryManager.shared.saveVideo(
+                tempURL: videoURL,
+                topic: self.topicInput
+            )
+            
+            generatedVideoURL = permanentURL ?? videoURL
             isShowingPreview = true
             
-            logger.info("Generation pipeline completed successfully")
+            logger.info("Generation pipeline completed — saved to: \(self.generatedVideoURL?.lastPathComponent ?? "nil")")
             
         } catch is CancellationError {
             logger.info("Generation cancelled by user")
@@ -207,6 +220,7 @@ class ReelGeneratorViewModel: ObservableObject {
             isGenerating = false
             progressValue = 0
             currentBlueprint = nil
+            userMediaURL = nil
         }
         
         // Clean up temp files from previous generation
@@ -233,6 +247,177 @@ enum FacelessError: LocalizedError {
             return "Video alınamadı: \(reason)"
         case .renderFailed(let reason):
             return "Video oluşturulamadı: \(reason)"
+        }
+    }
+}
+//
+//  VideoHistoryManager.swift
+//  Faceless
+//
+//  Manages persistent storage of generated video history using UserDefaults.
+//  Provides CRUD operations for the "Son Oluşturulanlar" list on HomeView.
+//
+
+import Foundation
+import os.log
+
+// MARK: - VideoHistoryItem
+
+/// Represents a single generated video entry in the history.
+struct VideoHistoryItem: Codable, Identifiable {
+    let id: String
+    let topic: String
+    let dateCreated: Date
+    let fileName: String
+
+    /// Resolves the full file URL from Documents directory.
+    var fileURL: URL? {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        guard let docsDir = docs else { return nil }
+        let url = docsDir.appendingPathComponent("GeneratedVideos").appendingPathComponent(fileName)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// Formatted date string for display.
+    var formattedDate: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "tr_TR")
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: dateCreated, relativeTo: Date())
+    }
+}
+
+// MARK: - VideoHistoryManager
+
+/// Singleton that persists generated video metadata to UserDefaults
+/// and copies video files to the Documents directory for long-term storage.
+@MainActor
+final class VideoHistoryManager: ObservableObject {
+
+    static let shared = VideoHistoryManager()
+
+    @Published private(set) var items: [VideoHistoryItem] = []
+
+    private let userDefaultsKey = "faceless_video_history"
+    private let maxHistoryCount = 20
+    private let logger = Logger(subsystem: "com.faceless.app", category: "VideoHistory")
+
+    private init() {
+        loadItems()
+    }
+
+    // MARK: - Public API
+
+    /// Copies the video from temp to Documents and saves the entry.
+    /// Returns the new permanent URL.
+    @discardableResult
+    func saveVideo(tempURL: URL, topic: String) -> URL? {
+        let fm = FileManager.default
+
+        // Ensure GeneratedVideos directory exists
+        guard let docsDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            logger.error("Could not find Documents directory")
+            return nil
+        }
+
+        let videosDir = docsDir.appendingPathComponent("GeneratedVideos")
+        if !fm.fileExists(atPath: videosDir.path) {
+            do {
+                try fm.createDirectory(at: videosDir, withIntermediateDirectories: true)
+            } catch {
+                logger.error("Failed to create GeneratedVideos directory: \(error.localizedDescription)")
+                return nil
+            }
+        }
+
+        // Generate unique filename
+        let fileName = "Faceless_\(UUID().uuidString.prefix(8)).mp4"
+        let destinationURL = videosDir.appendingPathComponent(fileName)
+
+        // Copy file (not move — temp cleanup handles original)
+        do {
+            if fm.fileExists(atPath: destinationURL.path) {
+                try fm.removeItem(at: destinationURL)
+            }
+            try fm.copyItem(at: tempURL, to: destinationURL)
+            logger.info("Video saved to: \(destinationURL.lastPathComponent)")
+        } catch {
+            logger.error("Failed to copy video: \(error.localizedDescription)")
+            return nil
+        }
+
+        // Create history item
+        let item = VideoHistoryItem(
+            id: UUID().uuidString,
+            topic: topic,
+            dateCreated: Date(),
+            fileName: fileName
+        )
+
+        // Add to beginning of list, enforce max count
+        items.insert(item, at: 0)
+        if items.count > maxHistoryCount {
+            // Remove oldest items and their files
+            let removed = items.suffix(from: maxHistoryCount)
+            for old in removed {
+                if let url = old.fileURL {
+                    try? fm.removeItem(at: url)
+                }
+            }
+            items = Array(items.prefix(maxHistoryCount))
+        }
+
+        persistItems()
+        return destinationURL
+    }
+
+    /// Removes a specific history item and its file.
+    func removeItem(_ item: VideoHistoryItem) {
+        if let url = item.fileURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        items.removeAll { $0.id == item.id }
+        persistItems()
+    }
+
+    /// Clears all history.
+    func clearAll() {
+        for item in items {
+            if let url = item.fileURL {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+        items.removeAll()
+        persistItems()
+    }
+
+    // MARK: - Private
+
+    private func loadItems() {
+        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey) else {
+            items = []
+            return
+        }
+        do {
+            let decoded = try JSONDecoder().decode([VideoHistoryItem].self, from: data)
+            // Filter out items whose files no longer exist
+            items = decoded.filter { $0.fileURL != nil }
+            let count = items.count
+            logger.info("Loaded \(count) history item(s)")
+        } catch {
+            logger.error("Failed to decode history: \(error.localizedDescription)")
+            items = []
+        }
+    }
+
+    private func persistItems() {
+        do {
+            let data = try JSONEncoder().encode(items)
+            UserDefaults.standard.set(data, forKey: userDefaultsKey)
+            let count = items.count
+            logger.debug("Persisted \(count) history item(s)")
+        } catch {
+            logger.error("Failed to encode history: \(error.localizedDescription)")
         }
     }
 }

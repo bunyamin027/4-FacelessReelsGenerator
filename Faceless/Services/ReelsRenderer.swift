@@ -52,7 +52,7 @@ enum ReelsRendererError: Error, LocalizedError {
 /// ```swift
 /// let renderer = ReelsRenderer()
 /// let outputURL = try await renderer.renderReel(
-///     videoURL: videoFile,
+///     videoURLs: [url1, url2],
 ///     audioURL: audioFile,
 ///     scenes: scenes,
 ///     resolution: .hd1080
@@ -100,20 +100,21 @@ final class ReelsRenderer {
 
     // MARK: - Public API
 
-    /// Renders a reel from the given video, audio, and scene data.
+    /// Renders a reel from the given video, audio, and scene data    /// Starts the render pipeline.
     ///
     /// - Parameters:
-    ///   - videoURL: The source background video file URL.
-    ///   - audioURL: The voiceover / music audio file URL.
-    ///   - scenes: An array of ``Scene`` objects describing text and timing.
-    ///   - resolution: The output resolution (default `.hd1080`).
-    ///   - watermarkText: Optional watermark string shown at the bottom-right.
-    /// - Returns: A file `URL` pointing to the exported `.mp4` in the temp directory.
-    /// - Throws: ``ReelsRendererError`` if any step fails.
+    ///   - videoURLs: Array of local file URLs for the background videos, corresponding to each scene.
+    ///   - audioURL: Local file URL for the voiceover audio track.
+    ///   - scenes: Array of scenes defining the timeline structure.
+    ///   - resolution: Output resolution (e.g., 1080x1920).
+    ///   - watermarkText: Optional watermark text.
+    /// - Returns: URL of the final exported `.mp4` file.
     func renderReel(
-        videoURL: URL,
+        videoURLs: [URL],
         audioURL: URL,
+        userMediaURL: URL? = nil,
         scenes: [Scene],
+        textAnimationStyle: String = "popup",
         resolution: RenderResolution = .hd1080,
         watermarkText: String? = nil
     ) async throws -> URL {
@@ -125,18 +126,42 @@ final class ReelsRenderer {
             logger.error("No scenes provided.")
             throw ReelsRendererError.invalidInput
         }
+        guard !videoURLs.isEmpty else {
+            logger.error("No video URLs provided.")
+            throw ReelsRendererError.invalidInput
+        }
 
-        // 1. Build the composition
-        let (composition, videoTrack, audioTrack) = try await buildComposition(
-            videoURL: videoURL,
-            audioURL: audioURL
+        let audioAsset = AVURLAsset(url: audioURL)
+        let audioDuration = try await audioAsset.load(.duration).seconds
+        let totalBlueprintDuration = scenes.reduce(0.0) { $0 + $1.duration }
+        
+        // Scale scene durations to perfectly match the actual generated audio length
+        let durationScale = audioDuration > 0 && totalBlueprintDuration > 0 ? audioDuration / totalBlueprintDuration : 1.0
+        
+        let scaledScenes = scenes.map { scene in
+            Scene(
+                duration: scene.duration * durationScale,
+                onScreenText: scene.onScreenText,
+                voiceoverScript: scene.voiceoverScript,
+                videoSearchKeyword: scene.videoSearchKeyword
+            )
+        }
+
+        // 1. Build the composition & collect transforms
+        let (composition, videoTrack, userVideoTrack, _, transforms) = try await buildComposition(
+            videoURLs: videoURLs,
+            audioURL: audioURL,
+            userMediaURL: userMediaURL,
+            scenes: scaledScenes,
+            renderSize: resolution.size
         )
 
-        // 2. Build video composition with layer instructions
-        let videoComposition = try await buildVideoComposition(
+        // 2. Build video composition with layer instructions (custom compositor if userMediaURL exists)
+        let videoComposition = buildVideoComposition(
             composition: composition,
             compositionVideoTrack: videoTrack,
-            sourceVideoURL: videoURL,
+            compositionUserVideoTrack: userVideoTrack,
+            transforms: transforms,
             renderSize: resolution.size
         )
 
@@ -144,7 +169,8 @@ final class ReelsRenderer {
         let totalDuration = composition.duration
         attachAnimationLayers(
             to: videoComposition,
-            scenes: scenes,
+            scenes: scaledScenes,
+            textAnimationStyle: textAnimationStyle,
             totalDuration: totalDuration,
             renderSize: resolution.size,
             watermarkText: watermarkText
@@ -165,113 +191,187 @@ final class ReelsRenderer {
 
     /// Creates an `AVMutableComposition` with video and audio tracks from the
     /// source files. The audio track drives the overall timeline duration.
-    /// If the video is shorter than the audio, the video is looped.
+    /// Maps each scene to its corresponding video URL, applies the video to that scene's duration,
+    /// loops if necessary, and returns the calculated transforms.
     private func buildComposition(
-        videoURL: URL,
-        audioURL: URL
-    ) async throws -> (AVMutableComposition, AVMutableCompositionTrack, AVMutableCompositionTrack) {
+        videoURLs: [URL],
+        audioURL: URL,
+        userMediaURL: URL?,
+        scenes: [Scene],
+        renderSize: CGSize
+    ) async throws -> (AVMutableComposition, AVMutableCompositionTrack, AVMutableCompositionTrack?, AVMutableCompositionTrack, [(CMTime, CGAffineTransform)]) {
 
-        let videoAsset = AVURLAsset(url: videoURL)
         let audioAsset = AVURLAsset(url: audioURL)
-
-        // Load source tracks asynchronously
-        let videoTracks = try await videoAsset.loadTracks(withMediaType: .video)
         let audioTracks = try await audioAsset.loadTracks(withMediaType: .audio)
-
-        guard let sourceVideoTrack = videoTracks.first else {
-            logger.error("No video track found in source asset.")
-            throw ReelsRendererError.trackLoadingFailed
-        }
         guard let sourceAudioTrack = audioTracks.first else {
             logger.error("No audio track found in audio asset.")
             throw ReelsRendererError.trackLoadingFailed
         }
 
         let audioDuration = try await audioAsset.load(.duration)
-        let videoDuration = try await videoAsset.load(.duration)
-
-        logger.debug("Audio duration: \(audioDuration.seconds)s, Video duration: \(videoDuration.seconds)s")
-
         let composition = AVMutableComposition()
 
         guard let compositionVideoTrack = composition.addMutableTrack(
             withMediaType: .video,
             preferredTrackID: kCMPersistentTrackID_Invalid
-        ) else {
-            throw ReelsRendererError.trackLoadingFailed
-        }
-
-        guard let compositionAudioTrack = composition.addMutableTrack(
+        ), let compositionAudioTrack = composition.addMutableTrack(
             withMediaType: .audio,
             preferredTrackID: kCMPersistentTrackID_Invalid
         ) else {
             throw ReelsRendererError.trackLoadingFailed
         }
 
+        // Add optional user media track for screen recording layer
+        var compositionUserVideoTrack: AVMutableCompositionTrack? = nil
+        if userMediaURL != nil {
+            compositionUserVideoTrack = composition.addMutableTrack(
+                withMediaType: .video,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            )
+        }
+
         // Insert audio — single insertion covering the full audio
         let audioTimeRange = CMTimeRange(start: .zero, duration: audioDuration)
         try compositionAudioTrack.insertTimeRange(audioTimeRange, of: sourceAudioTrack, at: .zero)
 
-        // Insert video — loop if shorter than audio
-        let videoTimeRange = CMTimeRange(start: .zero, duration: videoDuration)
+        // Store transforms mapping: (StartTime, Transform)
+        var transforms: [(CMTime, CGAffineTransform)] = []
         var currentTime = CMTime.zero
 
-        while currentTime < audioDuration {
-            let remaining = audioDuration - currentTime
-            let insertDuration = min(videoDuration, remaining)
-            let insertRange = CMTimeRange(start: .zero, duration: insertDuration)
+        for (index, scene) in scenes.enumerated() {
+            // Match scene duration, but don't exceed remaining audio duration
+            let remainingAudio = audioDuration - currentTime
+            if remainingAudio <= .zero { break }
+            
+            let sceneDurationSec = scene.duration
+            var targetDuration = CMTime(seconds: sceneDurationSec, preferredTimescale: 600)
+            targetDuration = min(targetDuration, remainingAudio)
+            
+            // Get corresponding video URL (fallback to last if mismatch)
+            let safeIndex = min(index, videoURLs.count - 1)
+            let videoURL = videoURLs[safeIndex]
+            
+            let videoAsset = AVURLAsset(url: videoURL)
+            guard let sourceVideoTrack = try await videoAsset.loadTracks(withMediaType: .video).first else {
+                continue
+            }
+            
+            let videoDuration = try await videoAsset.load(.duration)
+            guard videoDuration.seconds > 0 else {
+                logger.error("Source video duration is zero or invalid for URL: \(videoURL)")
+                continue
+            }
+            let preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
+            let naturalSize = try await sourceVideoTrack.load(.naturalSize)
+            
+            // Calculate transform for this specific video
+            let transformedSize = naturalSize.applying(preferredTransform)
+            let videoWidth = abs(transformedSize.width)
+            let videoHeight = abs(transformedSize.height)
+            let transform = aspectFillTransform(
+                sourceSize: CGSize(width: videoWidth, height: videoHeight),
+                targetSize: renderSize,
+                preferredTransform: preferredTransform
+            )
+            
+            // Append transform for this scene's start time
+            transforms.append((currentTime, transform))
 
-            try compositionVideoTrack.insertTimeRange(insertRange, of: sourceVideoTrack, at: currentTime)
-            currentTime = currentTime + insertDuration
+            // Insert video segments (looping if the video is shorter than the scene duration)
+            let trimDuration = CMTime(seconds: 0.3, preferredTimescale: 600)
+            let usableStart: CMTime
+            let usableDuration: CMTime
+
+            if videoDuration.seconds > 2.0 {
+                usableStart = trimDuration
+                usableDuration = videoDuration - trimDuration - trimDuration
+            } else {
+                usableStart = .zero
+                usableDuration = videoDuration
+            }
+
+            var sceneCurrentTime = currentTime
+            let sceneEndTime = currentTime + targetDuration
+
+            while sceneCurrentTime < sceneEndTime {
+                let remainingInScene = sceneEndTime - sceneCurrentTime
+                let insertDuration = min(usableDuration, remainingInScene)
+                let insertRange = CMTimeRange(start: usableStart, duration: insertDuration)
+
+                try compositionVideoTrack.insertTimeRange(insertRange, of: sourceVideoTrack, at: sceneCurrentTime)
+                sceneCurrentTime = sceneCurrentTime + insertDuration
+            }
+            
+            currentTime = sceneEndTime
+        }
+
+        // Loop and insert user media (screen recording) to cover the full composition duration
+        if let userURL = userMediaURL, let userVideoTrack = compositionUserVideoTrack {
+            let userAsset = AVURLAsset(url: userURL)
+            if let sourceUserVideoTrack = try await userAsset.loadTracks(withMediaType: .video).first {
+                let userVideoDuration = try await userAsset.load(.duration)
+                guard userVideoDuration.seconds > 0 else {
+                    logger.error("User video duration is zero or invalid.")
+                    throw ReelsRendererError.trackLoadingFailed
+                }
+                var userCurrentTime = CMTime.zero
+                
+                while userCurrentTime < composition.duration {
+                    let remaining = composition.duration - userCurrentTime
+                    let insertDuration = min(userVideoDuration, remaining)
+                    let insertRange = CMTimeRange(start: .zero, duration: insertDuration)
+                    try userVideoTrack.insertTimeRange(insertRange, of: sourceUserVideoTrack, at: userCurrentTime)
+                    userCurrentTime = userCurrentTime + insertDuration
+                }
+            }
         }
 
         logger.debug("Composition built — total duration: \(composition.duration.seconds)s")
-        return (composition, compositionVideoTrack, compositionAudioTrack)
+        return (composition, compositionVideoTrack, compositionUserVideoTrack, compositionAudioTrack, transforms)
     }
 
     // MARK: - Video Composition (Transform & Scaling)
 
     /// Builds an `AVMutableVideoComposition` with proper transform handling
-    /// so the source video is aspect-filled into the target render size.
+    /// using the transforms calculated during `buildComposition`.
     private func buildVideoComposition(
         composition: AVMutableComposition,
         compositionVideoTrack: AVMutableCompositionTrack,
-        sourceVideoURL: URL,
+        compositionUserVideoTrack: AVMutableCompositionTrack?,
+        transforms: [(CMTime, CGAffineTransform)],
         renderSize: CGSize
-    ) async throws -> AVMutableVideoComposition {
-
-        let sourceAsset = AVURLAsset(url: sourceVideoURL)
-        guard let sourceTrack = try await sourceAsset.loadTracks(withMediaType: .video).first else {
-            throw ReelsRendererError.trackLoadingFailed
-        }
-
-        let preferredTransform = try await sourceTrack.load(.preferredTransform)
-        let naturalSize = try await sourceTrack.load(.naturalSize)
-        let transformedSize = naturalSize.applying(preferredTransform)
-        let videoWidth = abs(transformedSize.width)
-        let videoHeight = abs(transformedSize.height)
-
-        logger.debug("Source natural size: \(naturalSize.width)x\(naturalSize.height), transformed: \(videoWidth)x\(videoHeight)")
-
-        // Calculate aspect-fill transform
-        let transform = aspectFillTransform(
-            sourceSize: CGSize(width: videoWidth, height: videoHeight),
-            targetSize: renderSize,
-            preferredTransform: preferredTransform
-        )
-
-        // Build instruction
-        let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = CMTimeRange(start: .zero, duration: composition.duration)
-
-        let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
-        layerInstruction.setTransform(transform, at: .zero)
-        instruction.layerInstructions = [layerInstruction]
+    ) -> AVMutableVideoComposition {
 
         let videoComposition = AVMutableVideoComposition()
         videoComposition.renderSize = renderSize
         videoComposition.frameDuration = CMTime(value: 1, timescale: Layout.frameRate)
-        videoComposition.instructions = [instruction]
+
+        if let userTrack = compositionUserVideoTrack {
+            // GPU-accelerated Custom Compositor for iPhone Mockup & Cinematic Blur
+            videoComposition.customVideoCompositorClass = CreativeVideoCompositor.self
+            
+            // Single instructions track for custom compositor covering full range
+            let mainInstruction = CreativeVideoCompositionInstruction(
+                timeRange: CMTimeRange(start: .zero, duration: composition.duration),
+                backgroundTrackID: compositionVideoTrack.trackID,
+                foregroundTrackID: userTrack.trackID
+            )
+            videoComposition.instructions = [mainInstruction]
+        } else {
+            // Standard Full-screen video composition with basic transforms
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = CMTimeRange(start: .zero, duration: composition.duration)
+
+            let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
+            
+            // Apply transforms at their respective start times
+            for (time, transform) in transforms {
+                layerInstruction.setTransform(transform, at: time)
+            }
+
+            instruction.layerInstructions = [layerInstruction]
+            videoComposition.instructions = [instruction]
+        }
 
         return videoComposition
     }
@@ -309,6 +409,7 @@ final class ReelsRenderer {
     private func attachAnimationLayers(
         to videoComposition: AVMutableVideoComposition,
         scenes: [Scene],
+        textAnimationStyle: String,
         totalDuration: CMTime,
         renderSize: CGSize,
         watermarkText: String?
@@ -322,13 +423,17 @@ final class ReelsRenderer {
         videoLayer.frame = parentLayer.bounds
         parentLayer.addSublayer(videoLayer)
 
-        // Add text layers for each scene
+        // Setup the TextAnimationEngine for dynamic subtitles
+        let textAnimationEngine = TextAnimationEngine()
+
+        // Add text layers for each scene with the chosen creative style
         var currentTime: CFTimeInterval = 0
-        for (index, scene) in scenes.enumerated() {
-            let textLayer = makeTextLayer(
-                for: scene,
-                index: index,
+        for scene in scenes {
+            let textLayer = textAnimationEngine.makeAnimatedTextLayer(
+                text: scene.onScreenText,
+                style: textAnimationStyle,
                 startTime: currentTime,
+                duration: scene.duration,
                 renderSize: renderSize
             )
             parentLayer.addSublayer(textLayer)
@@ -346,175 +451,7 @@ final class ReelsRenderer {
             in: parentLayer
         )
 
-        logger.debug("Animation layers attached — \(scenes.count) text layer(s), watermark: \(watermarkText != nil)")
-    }
-
-    /// Creates a single animated text layer for a scene.
-    private func makeTextLayer(
-        for scene: Scene,
-        index: Int,
-        startTime: CFTimeInterval,
-        renderSize: CGSize
-    ) -> CALayer {
-
-        let endTime = startTime + scene.duration
-        let padding = Layout.textInternalPadding
-
-        // Container layer (background + rounded corners)
-        let containerLayer = CALayer()
-        containerLayer.backgroundColor = UIColor.black.withAlphaComponent(Layout.textBackgroundAlpha).cgColor
-        containerLayer.cornerRadius = Layout.textCornerRadius
-        containerLayer.masksToBounds = true
-
-        // Text layer
-        let textLayer = CATextLayer()
-        textLayer.string = makeAttributedText(scene.onScreenText, fontSize: Layout.textFontSize, renderSize: renderSize)
-        textLayer.isWrapped = true
-        textLayer.alignmentMode = .center
-        textLayer.contentsScale = UIScreen.main.scale
-        textLayer.truncationMode = .end
-
-        // Calculate sizes
-        let maxTextWidth = renderSize.width - (Layout.textHorizontalPadding * 2) - (padding * 2)
-        let maxTextHeight = renderSize.height * Layout.textMaxHeightFraction
-        let textSize = estimateTextSize(
-            scene.onScreenText,
-            fontSize: Layout.textFontSize,
-            maxWidth: maxTextWidth,
-            maxHeight: maxTextHeight
-        )
-
-        let containerWidth = textSize.width + (padding * 2)
-        let containerHeight = textSize.height + (padding * 2)
-        let containerX = (renderSize.width - containerWidth) / 2.0
-        let containerY = renderSize.height - Layout.textBottomOffset - containerHeight
-
-        containerLayer.frame = CGRect(
-            x: containerX,
-            y: containerY,
-            width: containerWidth,
-            height: containerHeight
-        )
-
-        textLayer.frame = CGRect(
-            x: padding,
-            y: padding,
-            width: textSize.width,
-            height: textSize.height
-        )
-        containerLayer.addSublayer(textLayer)
-
-        // Animations
-        addFadeAnimations(to: containerLayer, startTime: startTime, endTime: endTime)
-        addScaleAnimation(to: containerLayer, startTime: startTime)
-
-        // Initially hidden
-        containerLayer.opacity = 0
-
-        logger.debug("Text layer [\(index)] — start: \(startTime)s, end: \(endTime)s, text: \"\(scene.onScreenText.prefix(30))...\"")
-
-        return containerLayer
-    }
-
-    /// Creates an `NSAttributedString` for the scene text.
-    private func makeAttributedText(
-        _ text: String,
-        fontSize: CGFloat,
-        renderSize: CGSize
-    ) -> NSAttributedString {
-
-        let font = UIFont.systemFont(ofSize: fontSize, weight: .bold)
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        paragraphStyle.lineBreakMode = .byWordWrapping
-        paragraphStyle.lineHeightMultiple = 1.15
-
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: UIColor.white,
-            .paragraphStyle: paragraphStyle
-        ]
-
-        return NSAttributedString(string: text, attributes: attributes)
-    }
-
-    /// Estimates the bounding size for the given text.
-    private func estimateTextSize(
-        _ text: String,
-        fontSize: CGFloat,
-        maxWidth: CGFloat,
-        maxHeight: CGFloat
-    ) -> CGSize {
-
-        let font = UIFont.systemFont(ofSize: fontSize, weight: .bold)
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        paragraphStyle.lineBreakMode = .byWordWrapping
-        paragraphStyle.lineHeightMultiple = 1.15
-
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .paragraphStyle: paragraphStyle
-        ]
-
-        let boundingRect = (text as NSString).boundingRect(
-            with: CGSize(width: maxWidth, height: maxHeight),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: attributes,
-            context: nil
-        )
-
-        return CGSize(
-            width: ceil(boundingRect.width),
-            height: ceil(boundingRect.height)
-        )
-    }
-
-    // MARK: - Animations
-
-    /// Adds opacity fade-in and fade-out animations to the given layer.
-    private func addFadeAnimations(
-        to layer: CALayer,
-        startTime: CFTimeInterval,
-        endTime: CFTimeInterval
-    ) {
-
-        // Fade in
-        let fadeIn = CABasicAnimation(keyPath: "opacity")
-        fadeIn.fromValue = 0.0
-        fadeIn.toValue = 1.0
-        fadeIn.beginTime = AVCoreAnimationBeginTimeAtZero + startTime
-        fadeIn.duration = Layout.fadeDuration
-        fadeIn.fillMode = .forwards
-        fadeIn.isRemovedOnCompletion = false
-        layer.add(fadeIn, forKey: "fadeIn_\(startTime)")
-
-        // Fade out
-        let fadeOut = CABasicAnimation(keyPath: "opacity")
-        fadeOut.fromValue = 1.0
-        fadeOut.toValue = 0.0
-        fadeOut.beginTime = AVCoreAnimationBeginTimeAtZero + endTime - Layout.fadeDuration
-        fadeOut.duration = Layout.fadeDuration
-        fadeOut.fillMode = .forwards
-        fadeOut.isRemovedOnCompletion = false
-        layer.add(fadeOut, forKey: "fadeOut_\(endTime)")
-    }
-
-    /// Adds a subtle scale-up animation on appear.
-    private func addScaleAnimation(
-        to layer: CALayer,
-        startTime: CFTimeInterval
-    ) {
-
-        let scaleAnim = CABasicAnimation(keyPath: "transform.scale")
-        scaleAnim.fromValue = Layout.scaleFrom
-        scaleAnim.toValue = Layout.scaleTo
-        scaleAnim.beginTime = AVCoreAnimationBeginTimeAtZero + startTime
-        scaleAnim.duration = Layout.fadeDuration
-        scaleAnim.fillMode = .forwards
-        scaleAnim.isRemovedOnCompletion = false
-        scaleAnim.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer.add(scaleAnim, forKey: "scaleIn_\(startTime)")
+        logger.debug("Animation layers attached — \(scenes.count) text layer(s), style: \(textAnimationStyle), watermark: \(watermarkText != nil)")
     }
 
     // MARK: - Watermark
@@ -566,12 +503,9 @@ final class ReelsRenderer {
         resolution: RenderResolution
     ) async throws -> URL {
 
-        let presetName: String = switch resolution {
-        case .hd1080:
-            AVAssetExportPreset1920x1080
-        case .sd720:
-            AVAssetExportPreset1280x720
-        }
+        // HighestQuality preset → videoComposition.renderSize'a (1080×1920) saygı gösterir
+        // Landscape-specific preset (1920×1080) portrait çıktıyla çakışıyordu.
+        let presetName = AVAssetExportPresetHighestQuality
 
         guard let exportSession = AVAssetExportSession(
             asset: composition,

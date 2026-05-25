@@ -1,23 +1,25 @@
 {
     "format": "Listicle",
-    "video_search_keyword": "city night aerial",
     "audio_mood": "energetic",
     "text_animation_style": "typewriter",
     "scenes": [
         {
             "duration": 5.0,
             "on_screen_text": "Yapay zeka ile video üretmenin en kolay yolu",
-            "voiceover_script": "Yapay zeka ile video üretmenin en kolay yolunu keşfedin."
+            "voiceover_script": "Yapay zeka ile video üretmenin en kolay yolunu keşfedin.",
+            "video_search_keyword": "city night aerial"
         },
         {
             "duration": 5.0,
             "on_screen_text": "Sadece bir konu girin, gerisini biz halledelim",
-            "voiceover_script": "Sadece bir konu girin. Gerisini biz halledelim."
+            "voiceover_script": "Sadece bir konu girin. Gerisini biz halledelim.",
+            "video_search_keyword": "neon lights tech"
         },
         {
             "duration": 5.0,
             "on_screen_text": "Faceless ile içerik üretimi artık çok kolay!",
-            "voiceover_script": "Faceless ile içerik üretimi artık çok kolay!"
+            "voiceover_script": "Faceless ile içerik üretimi artık çok kolay!",
+            "video_search_keyword": "happy programmer laptop"
         }
     ]
 }
