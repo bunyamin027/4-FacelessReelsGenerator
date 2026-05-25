@@ -237,7 +237,6 @@ final class VoiceoverGenerator: @unchecked Sendable {
                 throw VoiceoverError.audioFileCreationFailed("Failed to create AVAudioPCMBuffer")
             }
             buffer.frameLength = 44100
-            // Buffer is zero-initialized by default (silence)
             try audioFile.write(from: buffer)
             return outputURL
         } catch {
@@ -252,79 +251,102 @@ final class VoiceoverGenerator: @unchecked Sendable {
         }
 
         return try await withCheckedThrowingContinuation { continuation in
-            var audioFile: AVAudioFile?
-            var hasResumed = false
+            let delegate = SynthesisDelegate(
+                outputURL: outputURL,
+                continuation: continuation
+            )
+            synthesizer.delegate = delegate
+            
+            // Retain the delegate by attaching it to the synthesizer using Objective-C runtime
+            objc_setAssociatedObject(synthesizer, &VoiceoverGenerator.delegateAssociatedObjectKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
 
-            synthesizer.write(utterance) { [logger, synthesizer] buffer in
-                // Keep reference to synthesizer inside closure to prevent it from being deallocated
-                // until synthesis completes or calls fail/finish.
+            synthesizer.write(utterance) { [logger, synthesizer, weak delegate] buffer in
+                // Keep synthesizer alive
                 let _ = synthesizer
-
-                guard let pcmBuffer = buffer as? AVAudioPCMBuffer else {
-                    if !hasResumed {
-                        hasResumed = true
-                        if audioFile != nil {
-                            continuation.resume(returning: outputURL)
-                        } else {
-                            continuation.resume(
-                                throwing: VoiceoverError.noAudioBufferReceived
-                            )
-                        }
-                    }
-                    return
-                }
-
-                guard pcmBuffer.frameLength > 1 else {
-                    if !hasResumed {
-                        hasResumed = true
-                        if audioFile != nil {
-                            continuation.resume(returning: outputURL)
-                        } else {
-                            continuation.resume(
-                                throwing: VoiceoverError.noAudioBufferReceived
-                            )
-                        }
-                    }
-                    return
-                }
-
-                if audioFile == nil {
-                    do {
-                        audioFile = try AVAudioFile(
-                            forWriting: outputURL,
-                            settings: pcmBuffer.format.settings,
-                            commonFormat: pcmBuffer.format.commonFormat,
-                            interleaved: pcmBuffer.format.isInterleaved
-                        )
-                    } catch {
-                        logger.error("Audio file creation failed: \(error.localizedDescription)")
-                        if !hasResumed {
-                            hasResumed = true
-                            continuation.resume(
-                                throwing: VoiceoverError.audioFileCreationFailed(
-                                    error.localizedDescription
-                                )
-                            )
-                        }
-                        return
-                    }
-                }
+                
+                guard let pcmBuffer = buffer as? AVAudioPCMBuffer else { return }
+                guard pcmBuffer.frameLength > 0 else { return }
 
                 do {
-                    try audioFile?.write(from: pcmBuffer)
+                    try delegate?.append(buffer: pcmBuffer)
                 } catch {
                     logger.error("Buffer write failed: \(error.localizedDescription)")
-                    if !hasResumed {
-                        hasResumed = true
-                        continuation.resume(
-                            throwing: VoiceoverError.synthesisFailure(error.localizedDescription)
-                        )
-                    }
+                    delegate?.fail(with: VoiceoverError.synthesisFailure(error.localizedDescription))
                 }
             }
         }
         #endif
     }
+
+// MARK: - Synthesis Delegate
+
+#if !targetEnvironment(simulator)
+nonisolated(unsafe) private static var delegateAssociatedObjectKey: UInt8 = 0
+
+private final class SynthesisDelegate: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
+    private let outputURL: URL
+    private var continuation: CheckedContinuation<URL, Error>?
+    private var audioFile: AVAudioFile?
+    private var hasResumed = false
+    private let lock = NSLock()
+
+    init(outputURL: URL, continuation: CheckedContinuation<URL, Error>) {
+        self.outputURL = outputURL
+        self.continuation = continuation
+        super.init()
+    }
+
+    func append(buffer: AVAudioPCMBuffer) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        if audioFile == nil {
+            audioFile = try AVAudioFile(
+                forWriting: outputURL,
+                settings: buffer.format.settings,
+                commonFormat: buffer.format.commonFormat,
+                interleaved: buffer.format.isInterleaved
+            )
+        }
+        try audioFile?.write(from: buffer)
+    }
+
+    func fail(with error: Error) {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        guard !hasResumed else { return }
+        hasResumed = true
+        let cont = continuation
+        continuation = nil
+        cont?.resume(throwing: error)
+    }
+
+    // MARK: AVSpeechSynthesizerDelegate
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        if !hasResumed {
+            hasResumed = true
+            let cont = continuation
+            continuation = nil
+            cont?.resume(returning: outputURL)
+        }
+        
+        // Break the retain cycle
+        objc_setAssociatedObject(synthesizer, &VoiceoverGenerator.delegateAssociatedObjectKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        fail(with: VoiceoverError.exportCancelled)
+        
+        // Break the retain cycle
+        objc_setAssociatedObject(synthesizer, &VoiceoverGenerator.delegateAssociatedObjectKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+}
+#endif
 
     /// Combines multiple audio files into a single `.m4a` file using `AVMutableComposition`.
     ///

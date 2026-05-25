@@ -6,6 +6,7 @@
 import SwiftUI
 import AVFoundation
 import Combine
+import UIKit
 import os.log
 
 // MARK: - ReelGeneratorViewModel
@@ -44,8 +45,8 @@ class ReelGeneratorViewModel: ObservableObject {
     /// The loaded blueprint for the current generation
     @Published var currentBlueprint: ReelsBlueprint?
     
-    /// User selected media URL (e.g. screen recording) for iPhone Mockup overlay
-    @Published var userMediaURL: URL? = nil
+    /// User selected image URLs for slideshow composition
+    @Published var userSelectedImageURLs: [URL] = []
     
     // MARK: - Services
     
@@ -126,7 +127,7 @@ class ReelGeneratorViewModel: ObservableObject {
             let videoURL = try await reelsRenderer.renderReel(
                 videoURLs: sourceVideoURLs,
                 audioURL: audioURL,
-                userMediaURL: self.userMediaURL,
+                userSelectedImageURLs: self.userSelectedImageURLs,
                 scenes: blueprint.scenes,
                 textAnimationStyle: blueprint.textAnimationStyle,
                 resolution: .hd1080,
@@ -220,7 +221,7 @@ class ReelGeneratorViewModel: ObservableObject {
             isGenerating = false
             progressValue = 0
             currentBlueprint = nil
-            userMediaURL = nil
+            userSelectedImageURLs = []
         }
         
         // Clean up temp files from previous generation
@@ -236,6 +237,8 @@ enum FacelessError: LocalizedError {
     case emptyTopic
     case videoFetchFailed(String)
     case renderFailed(String)
+    case minImagesNotMet
+    case slideshowCreationFailed(String)
     
     var errorDescription: String? {
         switch self {
@@ -247,6 +250,10 @@ enum FacelessError: LocalizedError {
             return "Video alınamadı: \(reason)"
         case .renderFailed(let reason):
             return "Video oluşturulamadı: \(reason)"
+        case .minImagesNotMet:
+            return "Slayt gösterisi için en az 2 resim gereklidir."
+        case .slideshowCreationFailed(let reason):
+            return "Slayt gösterisi oluşturulamadı: \(reason)"
         }
     }
 }

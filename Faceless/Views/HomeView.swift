@@ -26,8 +26,8 @@ struct HomeView: View {
     @State private var selectedHistoryItem: VideoHistoryItem?
     @Namespace private var animationNamespace
     
-    @State private var selectedPickerItem: PhotosPickerItem? = nil
-    @State private var isLoadingVideo = false
+    @State private var selectedPickerItems: [PhotosPickerItem] = []
+    @State private var isLoadingImages = false
     
     // MARK: - Colors
     
@@ -526,11 +526,11 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 10) {
             // Section label
             HStack(spacing: 6) {
-                Image(systemName: "iphone.badge.play")
+                Image(systemName: "photo.on.rectangle.angled")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Color(hex: "8B5CF6"))
                 
-                Text("EKRAN KAYDI (MOCKUP MODU)")
+                Text("GÖRSELLER (SLAYT GÖSTERİSİ)")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundColor(Color.white.opacity(0.4))
                     .tracking(2)
@@ -543,7 +543,7 @@ struct HomeView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(
-                                viewModel.userMediaURL != nil
+                                !viewModel.userSelectedImageURLs.isEmpty
                                     ? Color(hex: "8B5CF6").opacity(0.5)
                                     : glassBorder,
                                 lineWidth: 1
@@ -551,18 +551,18 @@ struct HomeView: View {
                     )
                 
                 HStack(spacing: 16) {
-                    if isLoadingVideo {
+                    if isLoadingImages {
                         ProgressView()
                             .progressViewStyle(.circular)
                             .tint(Color(hex: "8B5CF6"))
                             .frame(width: 24, height: 24)
                         
-                        Text("Video yükleniyor...")
+                        Text("Görseller yükleniyor...")
                             .font(.system(size: 14, weight: .medium, design: .rounded))
                             .foregroundColor(Color.white.opacity(0.6))
                         
                         Spacer()
-                    } else if let userURL = viewModel.userMediaURL {
+                    } else if !viewModel.userSelectedImageURLs.isEmpty {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(Color(hex: "8B5CF6").opacity(0.15))
@@ -574,11 +574,11 @@ struct HomeView: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Ekran Kaydı Seçildi 📱")
+                            Text("\(viewModel.userSelectedImageURLs.count) Görsel Seçildi 🖼️")
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .foregroundColor(.white)
                             
-                            Text("Mockup modunda video birleştirilecek")
+                            Text("Slayt gösterisi olarak birleştirilecek")
                                 .font(.system(size: 12, weight: .regular, design: .rounded))
                                 .foregroundColor(Color.white.opacity(0.4))
                         }
@@ -588,8 +588,8 @@ struct HomeView: View {
                         // Clear button
                         Button {
                             withAnimation(.easeInOut(duration: 0.15)) {
-                                viewModel.userMediaURL = nil
-                                selectedPickerItem = nil
+                                viewModel.userSelectedImageURLs = []
+                                selectedPickerItems = []
                             }
                         } label: {
                             Image(systemName: "trash.circle.fill")
@@ -598,7 +598,7 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
-                        PhotosPicker(selection: $selectedPickerItem, matching: .videos) {
+                        PhotosPicker(selection: $selectedPickerItems, maxSelectionCount: 10, matching: .images) {
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle()
@@ -611,11 +611,11 @@ struct HomeView: View {
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Ekran Kaydı Ekle")
+                                    Text("Görsel Ekle")
                                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                                         .foregroundColor(.white)
                                     
-                                    Text("iPhone 15 mockup'ı içine giydirmek için")
+                                    Text("Slayt gösterisi için en fazla 10 görsel seçin")
                                         .font(.system(size: 12, weight: .regular, design: .rounded))
                                         .foregroundColor(Color.white.opacity(0.4))
                                 }
@@ -631,46 +631,29 @@ struct HomeView: View {
             }
             .frame(height: 64)
         }
-        .onChange(of: selectedPickerItem) { _, item in
-            guard let item = item else { return }
-            isLoadingVideo = true
+        .onChange(of: selectedPickerItems) { _, items in
+            guard !items.isEmpty else { return }
+            isLoadingImages = true
             
-            Task {
-                do {
-                    if let movie = try await item.loadTransferable(type: Movie.self) {
-                        await MainActor.run {
-                            viewModel.userMediaURL = movie.url
-                            isLoadingVideo = false
+            Task.detached(priority: .userInitiated) {
+                var urls: [URL] = []
+                for item in items {
+                    if let data = try? await item.loadTransferable(type: Data.self) {
+                        let fileURL = TempFileManager.shared.uniqueTempURL(extension: "jpg")
+                        do {
+                            try data.write(to: fileURL, options: .atomic)
+                            urls.append(fileURL)
+                        } catch {
+                            // Fallback or log if writing fails
                         }
-                    } else {
-                        await MainActor.run {
-                            viewModel.errorMessage = "Video formatı desteklenmiyor."
-                            isLoadingVideo = false
-                        }
-                    }
-                } catch {
-                    await MainActor.run {
-                        viewModel.errorMessage = "Video yüklenemedi: \(error.localizedDescription)"
-                        isLoadingVideo = false
                     }
                 }
+                
+                await MainActor.run {
+                    viewModel.userSelectedImageURLs = urls
+                    isLoadingImages = false
+                }
             }
-        }
-    }
-}
-
-// MARK: - Movie Transferable Representation
-
-struct Movie: Transferable {
-    let url: URL
-    
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(contentType: .movie) { movie in
-            SentTransferredFile(movie.url)
-        } importing: { received in
-            let copy = TempFileManager.shared.uniqueTempURL(extension: "mp4")
-            try FileManager.default.copyItem(at: received.file, to: copy)
-            return Movie(url: copy)
         }
     }
 }

@@ -36,6 +36,7 @@
 		C438176FD5679A1AA06B8CAD /* CapCutAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01CAD030248A6EDBCCD83E85 /* CapCutAPIError.swift */; };
 		C55FCBCC865B013890F07D0E /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB95D298B73C1441B667A650 /* QuartzCore.framework */; };
 		CAEE6CD35D7AE708457DB5B8 /* VideoPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68D3F3D2513951678F48B15 /* VideoPreviewView.swift */; };
+		D071F25DC802B0F618DE96EB /* AdvancedVideoRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15B04FD82C28F1E944CECA54 /* AdvancedVideoRenderer.swift */; };
 		D446DDDA047847E10DC719A2 /* StoreConfiguration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 4D4549C5BE9A941B1DFD4D7E /* StoreConfiguration.storekit */; };
 		D5B7DC02E4D22CDE31B8C2F3 /* Milestone3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DCC9E79C5B5F13CC89FC0E7 /* Milestone3Tests.swift */; };
 		DF06214C463CBE548E9B92C1 /* VoiceoverGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F76CCA176C188405CD18C3F /* VoiceoverGenerator.swift */; };
@@ -43,6 +44,7 @@
 		ED4312F9B8CA699CB6CD0DF3 /* ViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E36B02DDE3921886638C0F /* ViewModelTests.swift */; };
 		EFD5D5CE8D5AA276F8C64784 /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CBF51F62C3EADD5D2F2B3059 /* AVKit.framework */; };
 		FBE905902F34E59448A8B44C /* ReelsBlueprintTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB4CF7CEF2309EF35EF5D40 /* ReelsBlueprintTests.swift */; };
+		FD29D0198F64D387813EDB1F /* ImageToVideoRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B8A992C9EEC807E33063A9D /* ImageToVideoRenderer.swift */; };
 		FF0CBA4B036D9DBABC4DCDE2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E509A86AB20D177FCDE1CF5D /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -60,6 +62,7 @@
 		01CAD030248A6EDBCCD83E85 /* CapCutAPIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapCutAPIError.swift; sourceTree = "<group>"; };
 		0EF6679DDD9987DF86D5E1B3 /* APIEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIEnvironment.swift; sourceTree = "<group>"; };
 		14798FB17F2A8621230C2F35 /* UsageTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageTracker.swift; sourceTree = "<group>"; };
+		15B04FD82C28F1E944CECA54 /* AdvancedVideoRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedVideoRenderer.swift; sourceTree = "<group>"; };
 		20E36B02DDE3921886638C0F /* ViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelTests.swift; sourceTree = "<group>"; };
 		25B0DAE12E716A27E713B50C /* Faceless.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Faceless.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2BB4CF7CEF2309EF35EF5D40 /* ReelsBlueprintTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReelsBlueprintTests.swift; sourceTree = "<group>"; };
@@ -76,6 +79,7 @@
 		5738791F828E015D3DFE8B3D /* GenerationProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationProgressView.swift; sourceTree = "<group>"; };
 		57C17BD918766A459D404682 /* TextAnimationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextAnimationEngine.swift; sourceTree = "<group>"; };
 		6B76A8E3CB64E3229FA06730 /* UserTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTier.swift; sourceTree = "<group>"; };
+		6B8A992C9EEC807E33063A9D /* ImageToVideoRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageToVideoRenderer.swift; sourceTree = "<group>"; };
 		7DCC9E79C5B5F13CC89FC0E7 /* Milestone3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Milestone3Tests.swift; sourceTree = "<group>"; };
 		910EB8AFA1CBCDE7FCA47554 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		94159C4AB89BF5C7E6FA2ACC /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
@@ -192,11 +196,13 @@
 		C3474188FAC5D553507BFB49 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				15B04FD82C28F1E944CECA54 /* AdvancedVideoRenderer.swift */,
 				9B3CF9C5BA6B2A1C272593F7 /* AutoUploader.swift */,
 				3F82A5568ECB048899E9AE55 /* BlueprintService.swift */,
 				5481515E072609EEA1F8EC9B /* CapCutAPIService.swift */,
 				C8EB88129906302603472776 /* CreativeVideoCompositor.swift */,
 				4A440B4F104B8D456470D924 /* FeatureFlagManager.swift */,
+				6B8A992C9EEC807E33063A9D /* ImageToVideoRenderer.swift */,
 				A01F41CE73D00738C6E42FEE /* ReelsRenderer.swift */,
 				4375F917090C0E40D3DD20C4 /* SubscriptionManager.swift */,
 				57C17BD918766A459D404682 /* TextAnimationEngine.swift */,
@@ -345,6 +351,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C1F9C450E797BF88D5782D1D /* APIEnvironment.swift in Sources */,
+				D071F25DC802B0F618DE96EB /* AdvancedVideoRenderer.swift in Sources */,
 				A68E5F2FAD86C8EF91485348 /* AutoUploader.swift in Sources */,
 				257BD46423D340A696B784AB /* BlueprintService.swift in Sources */,
 				C438176FD5679A1AA06B8CAD /* CapCutAPIError.swift in Sources */,
@@ -356,6 +363,7 @@
 				8035767A01ACA357D1DDC80D /* GenerationPhase.swift in Sources */,
 				47AC9DD06F6868601711E1E0 /* GenerationProgressView.swift in Sources */,
 				A120A2E9944B2F384ED3F711 /* HomeView.swift in Sources */,
+				FD29D0198F64D387813EDB1F /* ImageToVideoRenderer.swift in Sources */,
 				38B935529AAECE255E53204E /* PaywallView.swift in Sources */,
 				87A735729EC3340C30322699 /* PexelsResponse.swift in Sources */,
 				2903BE5DEF5216293CFE3BCC /* ReelGeneratorViewModel.swift in Sources */,

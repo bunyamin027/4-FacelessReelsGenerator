@@ -26,6 +26,10 @@ enum ReelsRendererError: Error, LocalizedError {
     case exportFailed(String)
     /// One or more inputs (URLs, scenes) are invalid.
     case invalidInput
+    /// The slideshow AVAssetWriter failed.
+    case slideshowWriterFailed(String)
+    /// Failed to create a CVPixelBuffer for a slideshow frame.
+    case pixelBufferCreationFailed
 
     var errorDescription: String? {
         switch self {
@@ -35,6 +39,10 @@ enum ReelsRendererError: Error, LocalizedError {
             return "Export failed: \(reason)"
         case .invalidInput:
             return "Invalid input provided to the renderer."
+        case .slideshowWriterFailed(let reason):
+            return "Slideshow video creation failed: \(reason)"
+        case .pixelBufferCreationFailed:
+            return "Failed to create pixel buffer for slideshow frame."
         }
     }
 }
@@ -112,7 +120,7 @@ final class ReelsRenderer {
     func renderReel(
         videoURLs: [URL],
         audioURL: URL,
-        userMediaURL: URL? = nil,
+        userSelectedImageURLs: [URL] = [],
         scenes: [Scene],
         textAnimationStyle: String = "popup",
         resolution: RenderResolution = .hd1080,
@@ -129,6 +137,27 @@ final class ReelsRenderer {
         guard !videoURLs.isEmpty else {
             logger.error("No video URLs provided.")
             throw ReelsRendererError.invalidInput
+        }
+
+        // Convert user images to slideshow mp4 if provided
+        var slideshowURL: URL? = nil
+        if !userSelectedImageURLs.isEmpty {
+            let slideshowOutputURL = TempFileManager.shared.uniqueTempURL(extension: "mp4")
+            let slideshowRenderer = ImageToVideoRenderer()
+            let settings = RenderSettings(
+                size: resolution.size,
+                fps: Layout.frameRate,
+                slideDuration: 3.0,
+                transitionDuration: 0.5,
+                scaleMode: .aspectFill
+            )
+            try await slideshowRenderer.renderVideo(
+                from: userSelectedImageURLs,
+                to: slideshowOutputURL,
+                settings: settings
+            )
+            slideshowURL = slideshowOutputURL
+            logger.info("Slideshow created at: \(slideshowURL!.lastPathComponent)")
         }
 
         let audioAsset = AVURLAsset(url: audioURL)
@@ -151,7 +180,7 @@ final class ReelsRenderer {
         let (composition, videoTrack, userVideoTrack, _, transforms) = try await buildComposition(
             videoURLs: videoURLs,
             audioURL: audioURL,
-            userMediaURL: userMediaURL,
+            userMediaURL: slideshowURL,
             scenes: scaledScenes,
             renderSize: resolution.size
         )

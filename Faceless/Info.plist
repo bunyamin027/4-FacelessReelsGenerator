@@ -54,7 +54,7 @@
 		<true/>
 	</dict>
 	<key>GROQ_API_KEY</key>
-	<string>YOUR_GROQ_API_KEY_HERE</string>
+	<string>gsk_YOUR_GROQ_API_KEY_HERE</string>
 	<key>RAPIDAPI_KEY</key>
 	<string>YOUR_RAPIDAPI_KEY_HERE</string>
 	<key>RAPIDAPI_HOST</key>

@@ -21,7 +21,7 @@ final class TempFileManager: Sendable {
     private let logger = Logger(subsystem: "com.faceless.app", category: "TempFileManager")
     
     /// File extensions created by the app's pipeline
-    private let managedExtensions: Set<String> = ["mp4", "caf", "m4a", "mov", "wav"]
+    private let managedExtensions: Set<String> = ["mp4", "caf", "m4a", "mov", "wav", "jpg", "jpeg", "png"]
     
     // MARK: - Init
     
